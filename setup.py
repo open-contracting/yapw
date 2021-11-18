@@ -18,6 +18,9 @@ setup(
         "pika",
     ],
     extras_require={
+        "perf": [
+            "orjson",
+        ],
         "test": [
             "coveralls",
             "pytest",
