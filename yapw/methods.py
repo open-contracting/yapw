@@ -27,7 +27,7 @@ def nack(connection, channel, *args, **kwargs):
         cb = functools.partial(_nack_message, channel, *args, **kwargs)
         connection.add_callback_threadsafe(cb)
     else:
-        logger.error("Can't ACK as connection is closed or closing")
+        logger.error("Can't NACK as connection is closed or closing")
 
 
 def _ack_message(channel, *args, **kwargs):
