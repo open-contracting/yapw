@@ -1,0 +1,4 @@
+Methods
+=======
+
+.. automodule:: yapw.methods
