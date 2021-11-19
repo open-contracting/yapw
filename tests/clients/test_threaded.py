@@ -87,8 +87,8 @@ def test_decorator(message, caplog):
 
     assert len(caplog.records) == 3
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", "nack requeue=True body=b'{}'", False),
-        ("ERROR", "nack requeue=False body=b'{}'", False),
+        ("ERROR", "Unhandled exception when consuming b'{}' (requeue=True)", False),
+        ("ERROR", "Unhandled exception when consuming b'{}' (requeue=False)", False),
         ("INFO", "Received SIGTERM, shutting down gracefully", True),
     ]
 

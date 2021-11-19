@@ -22,7 +22,7 @@ def rescue(callback, connection, channel, method, properties, body):
         callback(connection, channel, method, properties, body)
     except Exception:
         requeue = False
-        logger.exception("nack requeue=%r body=%r", requeue, body)
+        logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
         nack(connection, channel, delivery_tag=delivery_tag, requeue=requeue)
 
 
@@ -35,5 +35,5 @@ def requeue(callback, connection, channel, method, properties, body):
         callback(connection, channel, method, properties, body)
     except Exception:
         requeue = not method.redelivered
-        logger.exception("nack requeue=%r body=%r", requeue, body)
+        logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
         nack(connection, channel, delivery_tag=delivery_tag, requeue=requeue)

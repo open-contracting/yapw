@@ -23,7 +23,7 @@ def test_rescue(nack, caplog):
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "ERROR"
-    assert caplog.records[-1].message == "nack requeue=False body=b'body'"
+    assert caplog.records[-1].message == "Unhandled exception when consuming b'body' (requeue=False)"
     assert caplog.records[-1].exc_info
 
 
@@ -38,5 +38,5 @@ def test_requeue(nack, redelivered, requeue_kwarg, caplog):
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "ERROR"
-    assert caplog.records[-1].message == f"nack requeue={requeue_kwarg} body=b'body'"
+    assert caplog.records[-1].message == f"Unhandled exception when consuming b'body' (requeue={requeue_kwarg})"
     assert caplog.records[-1].exc_info
