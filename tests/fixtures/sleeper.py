@@ -17,11 +17,11 @@ class Client(clients.Threaded, clients.Transient, clients.Blocking, clients.Base
     pass
 
 
-def callback(connection, channel, method, properties, body):
+def callback(state, channel, method, properties, body):
     logger.info("Sleep")
     time.sleep(10)
     logger.info("Wake!")
-    ack(connection, channel, method.delivery_tag)
+    ack(state, channel, method.delivery_tag)
 
 
 def main():

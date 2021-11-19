@@ -16,7 +16,7 @@ class Client(clients.Threaded, clients.Transient, clients.Blocking, clients.Base
     pass
 
 
-def callback(connection, channel, method, properties, body):
+def callback(state, channel, method, properties, body):
     raise Exception("message")
 
 

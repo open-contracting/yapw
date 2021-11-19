@@ -43,17 +43,18 @@ Create a consumer:
 .. code-block:: python
 
    from yapw.decorators import rescue
-   from yapw.methods import ack, nack
+   from yapw.methods import ack, nack, publish
 
 
-   def callback(connection, channel, method, properties, body):
+   def callback(state, channel, method, properties, body):
        try:
            key = json.loads(body)["key"]
            # do work
+           publish(state, channel, {"message": "value"}, "myroutingkey")
        except KeyError:
-           nack(connection, channel, method.delivery_tag)
+           nack(state, channel, method.delivery_tag)
        finally:
-           ack(connection, channel, method.delivery_tag)
+           ack(state, channel, method.delivery_tag)
 
 
    consumer = Client(url="amqp://user:pass@127.0.0.1", exchange="myexchange", prefetch_count=5)

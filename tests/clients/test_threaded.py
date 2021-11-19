@@ -35,18 +35,18 @@ def message():
     publisher.close()
 
 
-def sleeper(connection, channel, method, properties, body):
+def sleeper(state, channel, method, properties, body):
     logger.info("Sleep")
     time.sleep(DELAY * 2)
     logger.info("Wake!")
-    ack(connection, channel, method.delivery_tag)
+    ack(state, channel, method.delivery_tag)
 
 
-def raiser(connection, channel, method, properties, body):
+def raiser(state, channel, method, properties, body):
     raise Exception("message")
 
 
-def warner(connection, channel, method, properties, body):
+def warner(state, channel, method, properties, body):
     logger.warning("Oh!")
 
 

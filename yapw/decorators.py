@@ -13,27 +13,27 @@ from yapw.methods import nack
 logger = logging.getLogger(__name__)
 
 
-def rescue(callback, connection, channel, method, properties, body):
+def rescue(callback, state, channel, method, properties, body):
     """
     If the callback raises an exception, nack's the message without requeuing.
     """
     delivery_tag = method.delivery_tag
     try:
-        callback(connection, channel, method, properties, body)
+        callback(state, channel, method, properties, body)
     except Exception:
         requeue = False
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
-        nack(connection, channel, delivery_tag=delivery_tag, requeue=requeue)
+        nack(state, channel, delivery_tag=delivery_tag, requeue=requeue)
 
 
-def requeue(callback, connection, channel, method, properties, body):
+def requeue(callback, state, channel, method, properties, body):
     """
     If the callback raises an exception, nack's the message, and requeues the message unless it was redelivered.
     """
     delivery_tag = method.delivery_tag
     try:
-        callback(connection, channel, method, properties, body)
+        callback(state, channel, method, properties, body)
     except Exception:
         requeue = not method.redelivered
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
-        nack(connection, channel, delivery_tag=delivery_tag, requeue=requeue)
+        nack(state, channel, delivery_tag=delivery_tag, requeue=requeue)

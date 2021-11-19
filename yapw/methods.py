@@ -5,28 +5,44 @@ Functions for calling RabbitMQ methods from the context of a consumer callback.
 import functools
 import logging
 
+from yapw.util import basic_publish_kwargs
+
 logger = logging.getLogger(__name__)
 
 
-def publish(connection, channel, *args, **kwargs):
+def publish(state, channel, message, routing_key, *args, **kwargs):
     """
-    Publish a message.
+    Publishes with the provided message and routing key, and with the exchange set by the provided state.
+
+    :param state: an object with a ``connection`` attribute
+    :param channel: the channel from which to call ``basic_publish``
+    :param message: a JSON-serializable message
+    :param str routing_key: the routing key
     """
-    _channel_method_from_thread(connection, channel, "publish", *args, **kwargs)
+    keywords = basic_publish_kwargs(state, message, routing_key)
+    keywords.update(kwargs)
+
+    _channel_method_from_thread(state.connection, channel, "publish", *args, **keywords)
 
 
-def ack(connection, channel, *args, **kwargs):
+def ack(state, channel, *args, **kwargs):
     """
-    ACK a message.
+    Acks a message by its delivery tag.
+
+    :param state: an object with a ``connection`` attribute
+    :param channel: the channel from which to call ``basic_ack``
     """
-    _channel_method_from_thread(connection, channel, "ack", *args, **kwargs)
+    _channel_method_from_thread(state.connection, channel, "ack", *args, **kwargs)
 
 
-def nack(connection, channel, *args, **kwargs):
+def nack(state, channel, *args, **kwargs):
     """
-    NACK a message.
+    Nacks a message by its delivery tag.
+
+    :param state: an object with a ``connection`` attribute
+    :param channel: the channel from which to call ``basic_nack``
     """
-    _channel_method_from_thread(connection, channel, "nack", *args, **kwargs)
+    _channel_method_from_thread(state.connection, channel, "nack", *args, **kwargs)
 
 
 def _channel_method_from_thread(connection, channel, method, *args, **kwargs):

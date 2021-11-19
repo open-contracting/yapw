@@ -46,12 +46,13 @@ import functools
 import logging
 import signal
 import threading
+from collections import namedtuple
 
 import pika
 
 from yapw.decorators import rescue
 from yapw.ossignal import install_signal_handlers, signal_names
-from yapw.util import json_dumps
+from yapw.util import basic_publish_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +61,8 @@ logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 def _on_message(channel, method, properties, body, args):
-    (connection, threads, callback, decorator) = args
-    thread = threading.Thread(target=decorator, args=(callback, connection, channel, method, properties, body))
+    (state, threads, callback, decorator) = args
+    thread = threading.Thread(target=decorator, args=(callback, state, channel, method, properties, body))
     thread.start()
     threads.append(thread)
 
@@ -70,7 +71,12 @@ class Base:
     """
     Provides :meth:`~Base.format_routing_key`, which is used by all methods in other mixins that accept routing keys,
     in order to namespace the routing keys.
+
+    Attributes that can - and are expected to be - used safely in consumer callbacks should be listed in a ``__safe__``
+    class attribute.
     """
+
+    __safe__ = ["format_routing_key"]
 
     def __init__(self, *, routing_key_template="{routing_key}", **kwargs):
         """
@@ -89,12 +95,23 @@ class Base:
         """
         return self.routing_key_template.format(routing_key=routing_key, **self.__dict__)
 
+    @property
+    def __safe__(self):
+        """
+        Returns the attributes that can be used safely in consumer callbacks across all base classes and this class.
+        """
+        return [getattr(base, "__safe__", []) for base in type(self).__bases__] + type(self).__safe__
+
 
 class Blocking:
     """
     Uses a `blocking connection <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__ while
     avoiding deadlocks due to `blocked connections <https://www.rabbitmq.com/connection-blocked.html>`__.
     """
+
+    # The connection isn't "safe to use" but it can be "used safely" like in:
+    # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
+    __safe__ = ["connection"]
 
     def __init__(self, *, url="amqp://127.0.0.1", blocked_connection_timeout=1800, prefetch_count=1, **kwargs):
         """
@@ -131,6 +148,8 @@ class Publisher:
     durable = None
     delivery_mode = None
 
+    __safe__ = ["exchange", "delivery_mode"]
+
     def __init__(
         self, *, exchange="", exchange_type="direct", routing_key_template="{exchange}_{routing_key}", **kwargs
     ):
@@ -160,18 +179,20 @@ class Publisher:
 
     def publish(self, message, routing_key):
         """
-        Publishes a message with the routing key.
+        Publishes from the main thread, with the provided message and routing key, and with the configured exchange.
 
         :param message: a JSON-serializable message
         :param str routing_key: the routing key
         """
-        formatted = self.format_routing_key(routing_key)
+        keywords = basic_publish_kwargs(self, message, routing_key)
 
-        body = json_dumps(message)
-        properties = pika.BasicProperties(delivery_mode=self.delivery_mode, content_type="application/json")
-
-        self.channel.basic_publish(exchange=self.exchange, routing_key=formatted, body=body, properties=properties)
-        logger.debug("Published message %r with routing key %s", message, formatted)
+        self.channel.basic_publish(**keywords)
+        logger.debug(
+            "Published message %r to exchange %s with routing key %s",
+            message,
+            keywords["exchange"],
+            keywords["routing_key"],
+        )
 
 
 class Transient(Publisher):
@@ -220,8 +241,12 @@ class Threaded:
 
         self.declare_queue(routing_key)
 
+        # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
+        State = namedtuple("State", self.__safe__)
+        state = State({attr: getattr(self, attr) for attr in self.__safe__})
+
         threads = []
-        on_message_callback = functools.partial(_on_message, args=(self.connection, threads, callback, decorator))
+        on_message_callback = functools.partial(_on_message, args=(state, threads, callback, decorator))
         self.channel.basic_consume(formatted, on_message_callback)
 
         try:

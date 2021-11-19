@@ -64,4 +64,4 @@ def test_publish(connection, client_class, delivery_mode, caplog):
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "DEBUG"
-    assert caplog.records[-1].message == "Published message {'a': 1} with routing key exch_q"
+    assert caplog.records[-1].message == "Published message {'a': 1} to exchange exch with routing key exch_q"
