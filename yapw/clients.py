@@ -52,7 +52,7 @@ import pika
 
 from yapw.decorators import rescue
 from yapw.ossignal import install_signal_handlers, signal_names
-from yapw.util import basic_publish_kwargs
+from yapw.util import basic_publish_debug_args, basic_publish_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -190,12 +190,7 @@ class Publisher:
         keywords = basic_publish_kwargs(self, message, routing_key)
 
         self.channel.basic_publish(**keywords)
-        logger.debug(
-            "Published message %r to exchange %s with routing key %s",
-            message,
-            keywords["exchange"],
-            keywords["routing_key"],
-        )
+        logger.debug(*basic_publish_debug_args(message, keywords))
 
 
 class Transient(Publisher):
@@ -252,6 +247,7 @@ class Threaded:
         on_message_callback = functools.partial(_on_message, args=(state, threads, callback, decorator))
         self.channel.basic_consume(formatted, on_message_callback)
 
+        logger.debug("Consuming messages on channel %s from queue %s", self.channel.channel_number, formatted)
         try:
             self.channel.start_consuming()
         finally:

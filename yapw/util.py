@@ -33,3 +33,7 @@ def basic_publish_kwargs(state, message, routing_key):
     properties = pika.BasicProperties(delivery_mode=state.delivery_mode, content_type="application/json")
 
     return {"exchange": state.exchange, "routing_key": formatted, "body": body, "properties": properties}
+
+
+def basic_publish_debug_args(msg, kwargs):
+    return "Published message %r to exchange %s with routing key %s", msg, kwargs["exchange"], kwargs["routing_key"]

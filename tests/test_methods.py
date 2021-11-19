@@ -8,7 +8,7 @@ import pytest
 from yapw.methods import ack, nack, publish
 
 Connection = namedtuple("Connection", "is_open add_callback_threadsafe")
-Channel = namedtuple("Channel", "is_open basic_ack basic_nack basic_publish")
+Channel = namedtuple("Channel", "channel_number is_open basic_ack basic_nack basic_publish")
 State = namedtuple("State", "format_routing_key connection exchange delivery_mode")
 
 ack_nack_parameters = [(ack, "ack", [1]), (nack, "nack", [1])]
@@ -21,7 +21,7 @@ def format_routing_key(exchange, routing_key):
 
 def test_publish():
     connection = create_autospec(Connection, is_open=True)
-    channel = create_autospec(Channel, is_open=True)
+    channel = create_autospec(Channel, channel_number=1, is_open=True)
     function = functools.partial(format_routing_key, "exch")
     state = create_autospec(
         State, connection=connection, format_routing_key=function, exchange="exch", delivery_mode=2
@@ -44,7 +44,7 @@ def test_publish():
 @pytest.mark.parametrize("kwargs", [{}, {"multiple": True}])
 def test_ack_nack(function, infix, args, kwargs):
     connection = create_autospec(Connection, is_open=True)
-    channel = create_autospec(Channel, is_open=True)
+    channel = create_autospec(Channel, channel_number=1, is_open=True)
     state = create_autospec(State, connection=connection)
 
     function(state, channel, *args, **kwargs)
@@ -60,7 +60,7 @@ def test_ack_nack(function, infix, args, kwargs):
 @pytest.mark.parametrize("function,infix,args", parameters)
 def test_channel_closed(function, infix, args, caplog):
     connection = create_autospec(Connection, is_open=True)
-    channel = create_autospec(Channel, is_open=False)
+    channel = create_autospec(Channel, channel_number=1, is_open=False)
     state = create_autospec(State, connection=connection)
 
     function(state, channel, *args)
@@ -80,7 +80,7 @@ def test_channel_closed(function, infix, args, caplog):
 @pytest.mark.parametrize("function,infix,args", parameters)
 def test_connection_closed(function, infix, args, caplog):
     connection = create_autospec(Connection, is_open=False)
-    channel = create_autospec(Channel, is_open=True)
+    channel = create_autospec(Channel, channel_number=1, is_open=True)
     state = create_autospec(State, connection=connection)
 
     function(state, channel, *args)

@@ -8,7 +8,7 @@ import pytest
 
 from yapw.clients import Base, Blocking, Threaded, Transient
 from yapw.decorators import requeue
-from yapw.methods import ack
+from yapw.methods import ack, nack, publish
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,12 @@ def raiser(state, channel, method, properties, body):
 
 def warner(state, channel, method, properties, body):
     logger.warning("Oh!")
+    nack(state, channel, method.delivery_tag)
+
+
+def writer(state, channel, method, properties, body):
+    publish(state, channel, {"message": "value"}, "r")
+    ack(state, channel, method.delivery_tag)
 
 
 def kill(signum):
@@ -93,7 +99,26 @@ def test_decorator(message, caplog):
     ]
 
 
-def test_declare_queue(caplog):
+def test_publish(message, caplog):
+    caplog.set_level(logging.DEBUG)
+
+    consumer = get_client()
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
+    consumer.consume(writer, "q", decorator=requeue)
+
+    assert consumer.channel.is_closed
+    assert consumer.connection.is_closed
+
+    assert len(caplog.records) == 4
+    assert [(r.levelname, r.message) for r in caplog.records] == [
+        ("DEBUG", "Consuming messages on channel 1 from queue yapw_test_q"),
+        ("DEBUG", "Published message {'message': 'value'} to exchange yapw_test with routing key yapw_test_r"),
+        ("DEBUG", "Ack'd message on channel 1 with delivery tag 1"),
+        ("INFO", "Received SIGTERM, shutting down gracefully"),
+    ]
+
+
+def test_consume_declares_queue(caplog):
     declarer = get_client()
     declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
     declarer.consume(warner, "q", decorator=requeue)
@@ -111,6 +136,5 @@ def test_declare_queue(caplog):
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 1
-    assert caplog.records[-1].levelname == "WARNING"
-    assert caplog.records[-1].message == "Oh!"
+    assert len(caplog.records) > 1
+    assert all(r.levelname == "WARNING" and r.message == "Oh!" for r in caplog.records)

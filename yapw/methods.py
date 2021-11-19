@@ -5,7 +5,7 @@ Functions for calling RabbitMQ methods from the context of a consumer callback.
 import functools
 import logging
 
-from yapw.util import basic_publish_kwargs
+from yapw.util import basic_publish_debug_args, basic_publish_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -23,32 +23,31 @@ def publish(state, channel, message, routing_key, *args, **kwargs):
     keywords.update(kwargs)
 
     _channel_method_from_thread(state.connection, channel, "publish", *args, **keywords)
-    logger.debug(
-        "Published message %r to exchange %s with routing key %s",
-        message,
-        keywords["exchange"],
-        keywords["routing_key"],
-    )
+    logger.debug(*basic_publish_debug_args(message, keywords))
 
 
-def ack(state, channel, *args, **kwargs):
+def ack(state, channel, delivery_tag=0, **kwargs):
     """
     Acks a message by its delivery tag.
 
     :param state: an object with a ``connection`` attribute
     :param channel: the channel from which to call ``basic_ack``
+    :param int delivery_tag: the delivery tag
     """
-    _channel_method_from_thread(state.connection, channel, "ack", *args, **kwargs)
+    _channel_method_from_thread(state.connection, channel, "ack", delivery_tag, **kwargs)
+    logger.debug("Ack'd message on channel %s with delivery tag %s", channel.channel_number, delivery_tag)
 
 
-def nack(state, channel, *args, **kwargs):
+def nack(state, channel, delivery_tag=0, **kwargs):
     """
     Nacks a message by its delivery tag.
 
     :param state: an object with a ``connection`` attribute
     :param channel: the channel from which to call ``basic_nack``
+    :param int delivery_tag: the delivery tag
     """
-    _channel_method_from_thread(state.connection, channel, "nack", *args, **kwargs)
+    _channel_method_from_thread(state.connection, channel, "nack", delivery_tag, **kwargs)
+    logger.debug("Nack'd message on channel %s with delivery tag %s", channel.channel_number, delivery_tag)
 
 
 def _channel_method_from_thread(connection, channel, method, *args, **kwargs):
