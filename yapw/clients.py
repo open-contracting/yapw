@@ -96,11 +96,14 @@ class Base:
         return self.routing_key_template.format(routing_key=routing_key, **self.__dict__)
 
     @property
-    def __safe__(self):
+    @functools.lru_cache(maxsize=None)
+    def __getsafe__(self):
         """
         Returns the attributes that can be used safely in consumer callbacks across all base classes and this class.
         """
-        return [getattr(base, "__safe__", []) for base in type(self).__bases__] + type(self).__safe__
+        return {attr for base in type(self).__bases__ for attr in getattr(base, "__safe__", [])} | set(
+            type(self).__safe__
+        )
 
 
 class Blocking:
@@ -242,8 +245,8 @@ class Threaded:
         self.declare_queue(routing_key)
 
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
-        State = namedtuple("State", self.__safe__)
-        state = State({attr: getattr(self, attr) for attr in self.__safe__})
+        State = namedtuple("State", self.__getsafe__)
+        state = State(**{attr: getattr(self, attr) for attr in self.__getsafe__})
 
         threads = []
         on_message_callback = functools.partial(_on_message, args=(state, threads, callback, decorator))
