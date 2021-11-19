@@ -13,6 +13,15 @@ def raises(*args):
     raise Exception("message")
 
 
+def closes(*args):
+    global opened
+    opened = True
+    try:
+        raise Exception("message")
+    finally:
+        opened = False
+
+
 @patch("yapw.decorators.nack")
 def test_rescue(nack, caplog):
     method = Deliver(1, False)
@@ -40,3 +49,13 @@ def test_requeue(nack, redelivered, requeue_kwarg, caplog):
     assert caplog.records[-1].levelname == "ERROR"
     assert caplog.records[-1].message == f"Unhandled exception when consuming b'body' (requeue={requeue_kwarg})"
     assert caplog.records[-1].exc_info
+
+
+@patch("yapw.decorators.nack")
+def test_finally(nack):
+    method = Deliver(1, False)
+
+    rescue(closes, "connection", "channel", method, "properties", b"body")
+
+    global opened
+    assert opened is False
