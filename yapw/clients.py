@@ -99,7 +99,7 @@ class Blocking:
     connections <https://www.rabbitmq.com/connection-blocked.html>`__.
     """
 
-    def __init__(self, *, url="amqp://localhost", blocked_connection_timeout=1800, prefetch_count=1, **kwargs):
+    def __init__(self, *, url="amqp://127.0.0.1", blocked_connection_timeout=1800, prefetch_count=1, **kwargs):
         """
         Connects to RabbitMQ and creates a channel.
 
