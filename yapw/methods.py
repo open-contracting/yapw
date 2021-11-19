@@ -23,6 +23,12 @@ def publish(state, channel, message, routing_key, *args, **kwargs):
     keywords.update(kwargs)
 
     _channel_method_from_thread(state.connection, channel, "publish", *args, **keywords)
+    logger.debug(
+        "Published message %r to exchange %s with routing key %s",
+        message,
+        keywords["exchange"],
+        keywords["routing_key"],
+    )
 
 
 def ack(state, channel, *args, **kwargs):
