@@ -8,37 +8,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def publish(connection, channel, *args, **kwargs):
+    """
+    Publish a message.
+    """
+    _channel_method_from_thread(connection, channel, "publish", *args, **kwargs)
+
+
 def ack(connection, channel, *args, **kwargs):
     """
     ACK a message.
     """
-    if connection.is_open:
-        cb = functools.partial(_ack_message, channel, *args, **kwargs)
-        connection.add_callback_threadsafe(cb)
-    else:
-        logger.error("Can't ACK as connection is closed or closing")
+    _channel_method_from_thread(connection, channel, "ack", *args, **kwargs)
 
 
 def nack(connection, channel, *args, **kwargs):
     """
     NACK a message.
     """
+    _channel_method_from_thread(connection, channel, "nack", *args, **kwargs)
+
+
+def _channel_method_from_thread(connection, channel, method, *args, **kwargs):
     if connection.is_open:
-        cb = functools.partial(_nack_message, channel, *args, **kwargs)
+        cb = functools.partial(_channel_method_from_main, channel, method, *args, **kwargs)
         connection.add_callback_threadsafe(cb)
     else:
-        logger.error("Can't NACK as connection is closed or closing")
+        logger.error("Can't %s as connection is closed or closing", method)
 
 
-def _ack_message(channel, *args, **kwargs):
+def _channel_method_from_main(channel, method, *args, **kwargs):
     if channel.is_open:
-        channel.basic_ack(*args, **kwargs)
+        getattr(channel, f"basic_{method}")(*args, **kwargs)
     else:
-        logger.error("Can't ACK as channel is closed or closing")
-
-
-def _nack_message(channel, *args, **kwargs):
-    if channel.is_open:
-        channel.basic_nack(*args, **kwargs)
-    else:
-        logger.error("Can't NACK as channel is closed or closing")
+        logger.error("Can't %s as channel is closed or closing", method)

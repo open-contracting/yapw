@@ -3,13 +3,15 @@ from unittest.mock import create_autospec
 
 import pytest
 
-from yapw.methods import ack, nack
+from yapw.methods import ack, nack, publish
 
 Connection = namedtuple("Connection", "is_open add_callback_threadsafe")
-Channel = namedtuple("Channel", "is_open basic_ack basic_nack")
+Channel = namedtuple("Channel", "is_open basic_ack basic_nack basic_publish")
+
+parameters = [(ack, "ack"), (nack, "nack"), (publish, "publish")]
 
 
-@pytest.mark.parametrize("function,suffix", [(ack, "ack"), (nack, "nack")])
+@pytest.mark.parametrize("function,suffix", parameters)
 @pytest.mark.parametrize("kwargs", [{}, {"multiple": True}])
 def test_success(function, suffix, kwargs):
     connection = create_autospec(Connection, is_open=True)
@@ -25,7 +27,7 @@ def test_success(function, suffix, kwargs):
     getattr(channel, f"basic_{suffix}").assert_called_once_with(1, **kwargs)
 
 
-@pytest.mark.parametrize("function,infix", [(ack, "ACK"), (nack, "NACK")])
+@pytest.mark.parametrize("function,infix", parameters)
 def test_channel_closed(function, infix, caplog):
     connection = create_autospec(Connection, is_open=True)
     channel = create_autospec(Channel, is_open=False)
@@ -44,7 +46,7 @@ def test_channel_closed(function, infix, caplog):
     assert caplog.records[-1].message == f"Can't {infix} as channel is closed or closing"
 
 
-@pytest.mark.parametrize("function,infix", [(ack, "ACK"), (nack, "NACK")])
+@pytest.mark.parametrize("function,infix", parameters)
 def test_connection_closed(function, infix, caplog):
     connection = create_autospec(Connection, is_open=False)
     channel = create_autospec(Channel, is_open=True)
