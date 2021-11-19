@@ -44,7 +44,6 @@ Consumer
 """
 
 import functools
-import json
 import logging
 import signal
 import threading
@@ -53,6 +52,7 @@ import pika
 
 from yapw.decorators import rescue
 from yapw.ossignal import install_signal_handlers, signal_names
+from yapw.util import json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,7 @@ class Durable:
         """
         formatted = self.format_routing_key(routing_key)
 
-        body = json.dumps(message)
+        body = json_dumps(message)
         properties = pika.BasicProperties(delivery_mode=2, content_type="application/json")
 
         self.channel.basic_publish(exchange=self.exchange, routing_key=formatted, body=body, properties=properties)
