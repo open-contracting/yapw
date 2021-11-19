@@ -1,5 +1,5 @@
 """
-Offers mixins that can be composed in layers. For example:
+Mixins that can be composed in layers. For example:
 
 .. code-block:: python
 
@@ -11,26 +11,26 @@ Offers mixins that can be composed in layers. For example:
 The layers are:
 
 Base
-  Contains common logic, without interacting with RabbitMQ.
+  For common logic, without interacting with RabbitMQ.
 
   Available mixins:
 
   -  :class:`~yapw.clients.Base`
 Connection
-  Establishes a connection to RabbitMQ and creates a channel.
+  Establish a connection to RabbitMQ and create a channel.
 
   Available mixins:
 
   -  :class:`~yapw.clients.Blocking`
 Publisher
-  Declares an exchange, declares and binds queues, and publishes messages.
+  Declare an exchange, declare and bind queues, and publish messages.
 
   Available mixins:
 
   -  :class:`~yapw.clients.Durable`
   -  :class:`~yapw.clients.Transient`
 Consumer
-  Consumes messages.
+  Consume messages.
 
   Available mixins:
 
@@ -123,98 +123,73 @@ class Blocking:
         self.connection.close()
 
 
-class Transient:
+class Publisher:
+    """
+    An abstract parent class. Use :class:`~yapw.clients.Durable` or :class:`~yapw.clients.Transient` instead.
+    """
+
+    durable = None
+    delivery_mode = None
+
+    def __init__(
+        self, *, exchange="", exchange_type="direct", routing_key_template="{exchange}_{routing_key}", **kwargs
+    ):
+        """
+        Declares an exchange, unless using the default exchange.
+
+        :param str exchange: the exchange name
+        """
+        super().__init__(routing_key_template=routing_key_template, **kwargs)
+
+        #: The exchange name.
+        self.exchange = exchange
+
+        if self.exchange:
+            self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=self.durable)
+
+    def declare_queue(self, routing_key):
+        """
+        Declares a queue named after the routing key, and binds it to the exchange with the routing key.
+
+        :param str routing_key: the routing key
+        """
+        formatted = self.format_routing_key(routing_key)
+
+        self.channel.queue_declare(queue=formatted, durable=self.durable)
+        self.channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=formatted)
+
+    def publish(self, message, routing_key):
+        """
+        Publishes a message with the routing key.
+
+        :param message: a JSON-serializable message
+        :param str routing_key: the routing key
+        """
+        formatted = self.format_routing_key(routing_key)
+
+        body = json_dumps(message)
+        properties = pika.BasicProperties(delivery_mode=self.delivery_mode, content_type="application/json")
+
+        self.channel.basic_publish(exchange=self.exchange, routing_key=formatted, body=body, properties=properties)
+        logger.debug("Published message %r with routing key %s", message, formatted)
+
+
+class Transient(Publisher):
     """
     Declares a transient exchange, declares transient queues, and uses transient messages.
     """
 
-    def __init__(
-        self, *, exchange="", exchange_type="direct", routing_key_template="{exchange}_{routing_key}", **kwargs
-    ):
-        """
-        Declares a transient exchange, unless using the default exchange.
-
-        :param str exchange: the exchange name
-        """
-        super().__init__(routing_key_template=routing_key_template, **kwargs)
-
-        #: The exchange name.
-        self.exchange = exchange
-
-        if self.exchange:
-            self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=False)
-
-    def declare_queue(self, routing_key):
-        """
-        Declares a transient queue named after the routing key, and binds it to the exchange with the routing key.
-
-        :param str routing_key: the routing key
-        """
-        formatted = self.format_routing_key(routing_key)
-
-        self.channel.queue_declare(queue=formatted, durable=False)
-        self.channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=formatted)
-
-    def publish(self, message, routing_key):
-        """
-        Publishes a transient message with the routing key.
-
-        :param message: a JSON-serializable message
-        :param str routing_key: the routing key
-        """
-        formatted = self.format_routing_key(routing_key)
-
-        body = json_dumps(message)
-        properties = pika.BasicProperties(delivery_mode=1, content_type="application/json")
-
-        self.channel.basic_publish(exchange=self.exchange, routing_key=formatted, body=body, properties=properties)
+    durable = False
+    delivery_mode = 1
 
 
-class Durable:
+class Durable(Publisher):
     """
     Declares a durable exchange, declares durable queues, and uses persistent messages.
     """
 
-    def __init__(
-        self, *, exchange="", exchange_type="direct", routing_key_template="{exchange}_{routing_key}", **kwargs
-    ):
-        """
-        Declares a durable exchange, unless using the default exchange.
-
-        :param str exchange: the exchange name
-        """
-        super().__init__(routing_key_template=routing_key_template, **kwargs)
-
-        #: The exchange name.
-        self.exchange = exchange
-
-        if self.exchange:
-            self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=True)
-
-    def declare_queue(self, routing_key):
-        """
-        Declares a durable queue named after the routing key, and binds it to the exchange with the routing key.
-
-        :param str routing_key: the routing key
-        """
-        formatted = self.format_routing_key(routing_key)
-
-        self.channel.queue_declare(queue=formatted, durable=True)
-        self.channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=formatted)
-
-    def publish(self, message, routing_key):
-        """
-        Publishes a persistent message with the routing key.
-
-        :param message: a JSON-serializable message
-        :param str routing_key: the routing key
-        """
-        formatted = self.format_routing_key(routing_key)
-
-        body = json_dumps(message)
-        properties = pika.BasicProperties(delivery_mode=2, content_type="application/json")
-
-        self.channel.basic_publish(exchange=self.exchange, routing_key=formatted, body=body, properties=properties)
+    durable = True
+    delivery_mode = 2
 
 
 # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
