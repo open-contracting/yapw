@@ -1,7 +1,5 @@
 """
-Encapsulates all interactions with the message broker, RabbitMQ.
-
-It offers mixins that can be composed in layers. For example:
+Offers mixins that can be composed in layers. For example:
 
 .. code-block:: python
 
@@ -95,8 +93,7 @@ class Base:
 class Blocking:
     """
     Uses a `blocking connection <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__ while
-    `avoiding deadlocks <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__ due to `blocked
-    connections <https://www.rabbitmq.com/connection-blocked.html>`__.
+    avoiding deadlocks due to `blocked connections <https://www.rabbitmq.com/connection-blocked.html>`__.
     """
 
     def __init__(self, *, url="amqp://127.0.0.1", blocked_connection_timeout=1800, prefetch_count=1, **kwargs):
