@@ -102,7 +102,7 @@ class Blocking:
         """
         Connects to RabbitMQ and creates a channel.
 
-        :param str url: the connection string
+        :param str url: the connection string (don't set a blocked_connection_timeout query string parameter)
         :param int blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
         :param int prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
         """
