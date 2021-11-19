@@ -119,6 +119,12 @@ class Blocking:
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=prefetch_count)
 
+    def close(self):
+        """
+        Closes the connection.
+        """
+        self.connection.close()
+
 
 class Transient:
     """
