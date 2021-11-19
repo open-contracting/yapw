@@ -13,8 +13,9 @@ class Client(Durable, Blocking, Base):
 def test_init_default(connection):
     client = Client()
 
-    assert client.exchange == ""
     client.channel.exchange_declare.assert_not_called()
+
+    assert client.exchange == ""
     assert client.format_routing_key("test") == "_test"
 
 
@@ -22,8 +23,9 @@ def test_init_default(connection):
 def test_init_kwargs(connection):
     client = Client(exchange="exch", exchange_type="fanout", routing_key_template="{routing_key}_{exchange}")
 
-    assert client.exchange == "exch"
     client.channel.exchange_declare.assert_called_once_with(exchange="exch", exchange_type="fanout", durable=True)
+
+    assert client.exchange == "exch"
     assert client.format_routing_key("test") == "test_exch"
 
 

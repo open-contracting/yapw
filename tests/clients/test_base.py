@@ -11,7 +11,7 @@ def test_format_routing_key_default():
     assert formatted == "test"
 
 
-def test_format_routing_key_kwarg():
+def test_format_routing_key_kwargs():
     client = Base(routing_key_template="{exchange}_{routing_key}")
     client.exchange = "prefix"
 
