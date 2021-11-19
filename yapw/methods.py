@@ -1,5 +1,5 @@
 """
-Defines functions for calling RabbitMQ methods from the context of a consumer callback.
+Functions for calling RabbitMQ methods from the context of a consumer callback.
 """
 
 import functools

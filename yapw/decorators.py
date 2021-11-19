@@ -1,5 +1,5 @@
 """
-Defines decorators to be used with consumer callbacks.
+Decorators to be used with consumer callbacks.
 
 A message must be ack'd or nack'd if using `consumer prefetch <https://www.rabbitmq.com/consumer-prefetch.html>`__,
 because otherwise `RabbitMQ stops delivering messages <https://www.rabbitmq.com/confirms.html#channel-qos-prefetch>`__.
