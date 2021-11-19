@@ -50,7 +50,7 @@ from collections import namedtuple
 
 import pika
 
-from yapw.decorators import rescue
+from yapw.decorators import halt
 from yapw.ossignal import install_signal_handlers, signal_names
 from yapw.util import basic_publish_debug_args, basic_publish_kwargs
 
@@ -226,7 +226,7 @@ class Threaded:
 
         install_signal_handlers(self._on_shutdown)
 
-    def consume(self, callback, routing_key, decorator=rescue):
+    def consume(self, callback, routing_key, decorator=halt):
         """
         Declares a queue named after and bound by the routing key, and starts consuming messages from that queue,
         dispatching messages to the decorated callback.

@@ -42,7 +42,7 @@ Create a consumer:
 
 .. code-block:: python
 
-   from yapw.decorators import rescue
+   from yapw.decorators import discard
    from yapw.methods import ack, nack, publish
 
 
@@ -58,12 +58,12 @@ Create a consumer:
 
 
    consumer = Client(url="amqp://user:pass@127.0.0.1", exchange="myexchange", prefetch_count=5)
-   consumer.consume(callback, queue="messages", decorator=rescue)
+   consumer.consume(callback, queue="messages", decorator=discard)
 
 The ``decorator`` keyword argument controls how the message is acknowledged if an unexpected error occurs. See the :doc:`available decorators<api/decorators>`.
 
 yapw implements a pattern whereby the consumer declares and binds a queue. The queue's name and binding key are the same, and are namespaced by the exchange name.
 
-The :func:`~pika.methods.ack` and :func:`~pika.methods.nack` methods are safe to call from the consumer callback, and log an error if the connection or channel isn't open.
+The :func:`~pika.methods.ack`, :func:`~pika.methods.nack` and  :func:`~pika.methods.publish` methods are safe to call from the consumer callback. They log an error if the connection or channel isn't open.
 
 Copyright (c) 2021 Open Contracting Partnership, released under the BSD license

@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from yapw.decorators import requeue, rescue
+from yapw.decorators import discard, requeue
 
 # https://pika.readthedocs.io/en/stable/modules/spec.html#pika.spec.Basic.Deliver
 Deliver = namedtuple("Deliver", "delivery_tag redelivered")
@@ -23,12 +23,12 @@ def closes(*args):
 
 
 @patch("yapw.decorators.nack")
-def test_rescue(nack, caplog):
+def test_discard(nack, caplog):
     method = Deliver(1, False)
 
-    rescue(raises, "connection", "channel", method, "properties", b"body")
+    discard(raises, "connection", "channel", method, "properties", b"body")
 
-    nack.assert_called_once_with("connection", "channel", delivery_tag=1, requeue=False)
+    nack.assert_called_once_with("connection", "channel", 1, requeue=False)
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "ERROR"
@@ -43,7 +43,7 @@ def test_requeue(nack, redelivered, requeue_kwarg, caplog):
 
     requeue(raises, "connection", "channel", method, "properties", b"body")
 
-    nack.assert_called_once_with("connection", "channel", delivery_tag=1, requeue=requeue_kwarg)
+    nack.assert_called_once_with("connection", "channel", 1, requeue=requeue_kwarg)
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "ERROR"
@@ -55,7 +55,7 @@ def test_requeue(nack, redelivered, requeue_kwarg, caplog):
 def test_finally(nack):
     method = Deliver(1, False)
 
-    rescue(closes, "connection", "channel", method, "properties", b"body")
+    discard(closes, "connection", "channel", method, "properties", b"body")
 
     global opened
     assert opened is False

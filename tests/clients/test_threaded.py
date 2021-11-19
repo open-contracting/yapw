@@ -81,11 +81,29 @@ def test_shutdown(signum, signame, message, caplog):
     ]
 
 
-def test_decorator(message, caplog):
+def test_halt(message, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = get_client()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
+    consumer.connection.call_later(30, functools.partial(kill, signal.SIGINT))  # in case not halted
+    consumer.consume(raiser, "q")
+
+    assert consumer.channel.is_closed
+    assert consumer.connection.is_closed
+
+    assert len(caplog.records) == 2
+    # raise Exception(repr([r for r in caplog.records]))
+    assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
+        ("ERROR", "Unhandled exception when consuming b'{}', sending SIGTERM", False),
+        ("INFO", "Received SIGTERM, shutting down gracefully", True),
+    ]
+
+
+def test_requeue(message, caplog):
+    caplog.set_level(logging.INFO)
+
+    consumer = get_client()
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(raiser, "q", decorator=requeue)
 
     assert consumer.channel.is_closed
@@ -95,7 +113,7 @@ def test_decorator(message, caplog):
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
         ("ERROR", "Unhandled exception when consuming b'{}' (requeue=True)", False),
         ("ERROR", "Unhandled exception when consuming b'{}' (requeue=False)", False),
-        ("INFO", "Received SIGTERM, shutting down gracefully", True),
+        ("INFO", "Received SIGINT, shutting down gracefully", True),
     ]
 
 
@@ -103,8 +121,8 @@ def test_publish(message, caplog):
     caplog.set_level(logging.DEBUG)
 
     consumer = get_client()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
-    consumer.consume(writer, "q", decorator=requeue)
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    consumer.consume(writer, "q")
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
@@ -114,21 +132,21 @@ def test_publish(message, caplog):
         ("DEBUG", "Consuming messages on channel 1 from queue yapw_test_q"),
         ("DEBUG", "Published message {'message': 'value'} to exchange yapw_test with routing key yapw_test_r"),
         ("DEBUG", "Ack'd message on channel 1 with delivery tag 1"),
-        ("INFO", "Received SIGTERM, shutting down gracefully"),
+        ("INFO", "Received SIGINT, shutting down gracefully"),
     ]
 
 
 def test_consume_declares_queue(caplog):
     declarer = get_client()
-    declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
-    declarer.consume(warner, "q", decorator=requeue)
+    declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    declarer.consume(warner, "q")
 
     publisher = get_client()
     publisher.publish({}, "q")
 
     consumer = get_client()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
-    consumer.consume(warner, "q", decorator=requeue)
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    consumer.consume(warner, "q")
 
     publisher.channel.queue_purge("yapw_test_q")
     publisher.close()
