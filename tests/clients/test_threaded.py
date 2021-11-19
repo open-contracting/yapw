@@ -94,8 +94,8 @@ def test_halt(message, caplog):
     assert len(caplog.records) == 2
     # raise Exception(repr([r for r in caplog.records]))
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", "Unhandled exception when consuming b'{}', sending SIGTERM", False),
-        ("INFO", "Received SIGTERM, shutting down gracefully", True),
+        ("ERROR", "Unhandled exception when consuming b'{}', sending SIGUSR1", False),
+        ("INFO", "Received SIGUSR1, shutting down gracefully", True),
     ]
 
 

@@ -34,14 +34,14 @@ logger = logging.getLogger(__name__)
 
 def halt(callback, state, channel, method, properties, body):
     """
-    If the callback raises an exception, send the SIGTERM signal to the main thread, without acknowledgment.
+    If the callback raises an exception, send the SIGUSR1 signal to the main thread, without acknowledgment.
     """
     try:
         callback(state, channel, method, properties, body)
     except Exception:
-        logger.exception("Unhandled exception when consuming %r, sending SIGTERM", body)
+        logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
         # https://stackoverflow.com/a/7099229/244258
-        os.kill(os.getpid(), signal.SIGTERM)
+        os.kill(os.getpid(), signal.SIGUSR1)
 
 
 def discard(callback, state, channel, method, properties, body):
