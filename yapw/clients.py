@@ -30,6 +30,7 @@ Publisher
   Available mixins:
 
   -  :class:`~yapw.clients.Durable`
+  -  :class:`~yapw.clients.Transient`
 Consumer
   Consumes messages.
 
@@ -119,9 +120,56 @@ class Blocking:
         self.channel.basic_qos(prefetch_count=prefetch_count)
 
 
+class Transient:
+    """
+    Declares a transient exchange, declares transient queues, and uses transient messages.
+    """
+
+    def __init__(
+        self, *, exchange="", exchange_type="direct", routing_key_template="{exchange}_{routing_key}", **kwargs
+    ):
+        """
+        Declares a transient exchange, unless using the default exchange.
+
+        :param str exchange: the exchange name
+        """
+        super().__init__(routing_key_template=routing_key_template, **kwargs)
+
+        #: The exchange name.
+        self.exchange = exchange
+
+        if self.exchange:
+            self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=False)
+
+    def declare_queue(self, routing_key):
+        """
+        Declares a transient queue named after the routing key, and binds it to the exchange with the routing key.
+
+        :param str routing_key: the routing key
+        """
+        formatted = self.format_routing_key(routing_key)
+
+        self.channel.queue_declare(queue=formatted, durable=False)
+        self.channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=formatted)
+
+    def publish(self, message, routing_key):
+        """
+        Publishes a transient message with the routing key.
+
+        :param message: a JSON-serializable message
+        :param str routing_key: the routing key
+        """
+        formatted = self.format_routing_key(routing_key)
+
+        body = json_dumps(message)
+        properties = pika.BasicProperties(delivery_mode=1, content_type="application/json")
+
+        self.channel.basic_publish(exchange=self.exchange, routing_key=formatted, body=body, properties=properties)
+
+
 class Durable:
     """
-    Declares a durable exchange, declares durable queues, uses persistent messages and namespaces by the exchange name.
+    Declares a durable exchange, declares durable queues, and uses persistent messages.
     """
 
     def __init__(
