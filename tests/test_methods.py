@@ -19,7 +19,7 @@ def test_success(function, suffix, kwargs):
 
     connection.add_callback_threadsafe.assert_called_once()
 
-    cb = connection.add_callback_threadsafe.call_args.args[0]
+    cb = connection.add_callback_threadsafe.call_args[0][0]
     cb()
 
     getattr(channel, f"basic_{suffix}").assert_called_once_with(1, **kwargs)
@@ -34,7 +34,7 @@ def test_channel_closed(function, infix, caplog):
 
     connection.add_callback_threadsafe.assert_called_once()
 
-    cb = connection.add_callback_threadsafe.call_args.args[0]
+    cb = connection.add_callback_threadsafe.call_args[0][0]
     cb()
 
     getattr(channel, f"basic_{infix.lower()}").assert_not_called()
