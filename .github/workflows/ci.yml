@@ -24,6 +24,8 @@ jobs:
       # "orjson does not support PyPy" and fails to install. https://pypi.org/project/orjson/
       - if: matrix.python-version != 'pypy-3.7'
         name: Test
+        env:
+          TEST_RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports[5672] }}
         run: |
           coverage run --append --source=yapw -m pytest
           pip install orjson
@@ -31,6 +33,8 @@ jobs:
           pip uninstall -y orjson
       - if: matrix.python-version == 'pypy-3.7'
         name: Test
+        env:
+          TEST_RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports[5672] }}
         run: pytest --cov yapw
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

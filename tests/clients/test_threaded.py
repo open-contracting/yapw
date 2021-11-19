@@ -13,20 +13,25 @@ from yapw.methods import ack
 logger = logging.getLogger(__name__)
 
 DELAY = 0.05
+RABBIT_URL = os.getenv("TEST_RABBIT_URL", "amqp://127.0.0.1")
 
 
 class Client(Threaded, Transient, Blocking, Base):
     pass
 
 
+def get_client():
+    return Client(url=RABBIT_URL, exchange="yapw_test")
+
+
 @pytest.fixture
 def message():
-    publisher = Client(exchange="ocdskingfisherexport_test")
+    publisher = get_client()
     publisher.declare_queue("q")
     publisher.publish({}, "q")
     yield
     # Purge the queue, instead of waiting for a restart.
-    publisher.channel.queue_purge("ocdskingfisherexport_test_q")
+    publisher.channel.queue_purge("yapw_test_q")
     publisher.close()
 
 
@@ -55,7 +60,7 @@ def kill(signum):
 def test_shutdown(signum, signame, message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = Client(exchange="ocdskingfisherexport_test")
+    consumer = get_client()
     consumer.connection.call_later(DELAY, functools.partial(kill, signum))
     consumer.consume(sleeper, "q")
 
@@ -73,7 +78,7 @@ def test_shutdown(signum, signame, message, caplog):
 def test_decorator(message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = Client(exchange="ocdskingfisherexport_test")
+    consumer = get_client()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
     consumer.consume(raiser, "q", decorator=requeue)
 
@@ -89,18 +94,18 @@ def test_decorator(message, caplog):
 
 
 def test_declare_queue(caplog):
-    declarer = Client(exchange="ocdskingfisherexport_test")
+    declarer = get_client()
     declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
     declarer.consume(warner, "q", decorator=requeue)
 
-    publisher = Client(exchange="ocdskingfisherexport_test")
+    publisher = get_client()
     publisher.publish({}, "q")
 
-    consumer = Client(exchange="ocdskingfisherexport_test")
+    consumer = get_client()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGTERM))
     consumer.consume(warner, "q", decorator=requeue)
 
-    publisher.channel.queue_purge("ocdskingfisherexport_test_q")
+    publisher.channel.queue_purge("yapw_test_q")
     publisher.close()
 
     assert consumer.channel.is_closed
