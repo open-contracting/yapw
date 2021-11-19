@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.0.5 (Unreleased)
+------------------
+
+Changed
+~~~~~~~
+
+-  Add channel number to debug message for ``publish()``.
+
 0.0.4 (2021-11-19)
 ------------------
 

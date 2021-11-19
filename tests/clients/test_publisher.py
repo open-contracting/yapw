@@ -51,6 +51,8 @@ def test_declare_queue(connection, client_class, durable):
 @pytest.mark.parametrize("client_class,delivery_mode", [(DurableClient, 2), (TransientClient, 1)])
 @patch("pika.BlockingConnection")
 def test_publish(connection, client_class, delivery_mode, caplog):
+    connection.return_value.channel.return_value.channel_number = 1
+
     caplog.set_level(logging.DEBUG)
 
     client = client_class(exchange="exch")
@@ -63,5 +65,6 @@ def test_publish(connection, client_class, delivery_mode, caplog):
     )
 
     assert len(caplog.records) == 1
-    assert caplog.records[-1].levelname == "DEBUG"
-    assert caplog.records[-1].message == "Published message {'a': 1} to exchange exch with routing key exch_q"
+    record = caplog.records[-1]
+    assert record.levelname == "DEBUG"
+    assert record.message == "Published message {'a': 1} on channel 1 to exchange exch with routing key exch_q"

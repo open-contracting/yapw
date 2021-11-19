@@ -190,7 +190,7 @@ class Publisher:
         keywords = basic_publish_kwargs(self, message, routing_key)
 
         self.channel.basic_publish(**keywords)
-        logger.debug(*basic_publish_debug_args(message, keywords))
+        logger.debug(*basic_publish_debug_args(self.channel, message, keywords))
 
 
 class Transient(Publisher):

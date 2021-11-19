@@ -130,7 +130,10 @@ def test_publish(message, caplog):
     assert len(caplog.records) == 4
     assert [(r.levelname, r.message) for r in caplog.records] == [
         ("DEBUG", "Consuming messages on channel 1 from queue yapw_test_q"),
-        ("DEBUG", "Published message {'message': 'value'} to exchange yapw_test with routing key yapw_test_r"),
+        (
+            "DEBUG",
+            "Published message {'message': 'value'} on channel 1 to exchange yapw_test with routing key yapw_test_r",
+        ),
         ("DEBUG", "Ack'd message on channel 1 with delivery tag 1"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
     ]

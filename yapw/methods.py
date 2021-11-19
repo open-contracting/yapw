@@ -23,7 +23,7 @@ def publish(state, channel, message, routing_key, *args, **kwargs):
     keywords.update(kwargs)
 
     _channel_method_from_thread(state.connection, channel, "publish", *args, **keywords)
-    logger.debug(*basic_publish_debug_args(message, keywords))
+    logger.debug(*basic_publish_debug_args(channel, message, keywords))
 
 
 def ack(state, channel, delivery_tag=0, **kwargs):
