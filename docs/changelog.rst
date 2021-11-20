@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.0.5 (Unreleased)
+0.0.4 (2021-11-19)
 ------------------
 
 Added
@@ -12,15 +12,8 @@ Added
 Changed
 ~~~~~~~
 
--  Add channel number to debug message for ``publish()``.
-
-0.0.4 (2021-11-19)
-------------------
-
-Changed
-~~~~~~~
-
 -  Use the ``SIGUSR1`` signal to kill the process from a thread.
+-  Add the channel number to the debug message for ``publish()``.
 
 0.0.3 (2021-11-19)
 ------------------
