@@ -74,11 +74,6 @@ The :func:`~yapw.methods.ack`, :func:`~yapw.methods.nack` and  :func:`~yapw.meth
 
    Thread-safe helper methods (using `add_callback_threadsafe() <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html#pika.adapters.blocking_connection.BlockingConnection.add_callback_threadsafe>`__) have not yet been defined for all relevant `channel methods <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html#pika.adapters.blocking_connection.BlockingChannel>`__.
 
-Error handling
-~~~~~~~~~~~~~~
-
-The ``decorator`` keyword argument to the :meth:`~yapw.clients.Threaded.consume` method controls if and how the message is acknowledged if an unexpected error occurs. See the :doc:`available decorators<api/decorators>`.
-
 Encoding and decoding
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -108,5 +103,26 @@ You can change this behavior. For example, change the bodies of the ``encode`` a
 
 
    client = Client(encode=encode, decode=decode)
+
+Error handling
+~~~~~~~~~~~~~~
+
+The ``decorator`` keyword argument to the :meth:`~yapw.clients.Threaded.consume` method is a function that wraps the consumer callback (the first argument to the ``consume`` method). This function can be used to:
+
+-  Offer conveniences to the consumer callback, like decoding the message body
+-  Handle unexpected errors from the consumer callback
+
+When using `consumer prefetch <https://www.rabbitmq.com/consumer-prefetch.html>`__, if a message is not ack'd or nack'd, then `RabbitMQ stops delivering messages <https://www.rabbitmq.com/confirms.html#channel-qos-prefetch>`__. As such, it's important to handle unexpected errors by either acknowledging the message or halting the process. Otherwise, the process will stall.
+
+The default decorator is the :func:`yapw.decorators.halt` function, which sends the SIGUSR1 signal to the main thread, without acknowledging the message. See the :doc:`available decorators<api/decorators>` and the rationale for the default setting.
+
+All decorators also decode the message body, which can be configured as above. If an exception occurs while decoding, the decorator sends the SIGUSR2 signal to the main thread, without acknowledging the message. In such cases, it's likely that encoding or decoding is misconfigured by the user.
+
+The :class:`~yapw.clients.Threaded` mixin handles both signals by shutting down gracefully.
+
+Signal handling
+~~~~~~~~~~~~~~~
+
+The :class:`~yapw.clients.Threaded` mixin shuts down gracefully if it receives the ``SIGTERM`` (system exit) or ``SIGINT`` (keyboard interrupt) signals. It stops consuming messages, waits for threads to terminate, and closes the RabbitMQ connection.
 
 Copyright (c) 2021 Open Contracting Partnership, released under the BSD license

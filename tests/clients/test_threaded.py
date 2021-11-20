@@ -95,7 +95,10 @@ def decode(index, state, channel, method, properties, body):
     return body.decode()[index]
 
 
-@pytest.mark.parametrize("signum,signame", [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM")])
+@pytest.mark.parametrize(
+    "signum,signame",
+    [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM"), (signal.SIGUSR1, "SIGUSR1"), (signal.SIGUSR2, "SIGUSR2")],
+)
 def test_shutdown(signum, signame, message, caplog):
     caplog.set_level(logging.INFO)
 
@@ -114,7 +117,7 @@ def test_shutdown(signum, signame, message, caplog):
     ]
 
 
-def test_decode_success(short_message, caplog):
+def test_decode_valid(short_message, caplog):
     consumer = get_client(decode=functools.partial(decode, 0))
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(ack_warner, "q")
@@ -127,7 +130,7 @@ def test_decode_success(short_message, caplog):
     assert caplog.records[-1].message == "1"
 
 
-def test_decode_nacks(short_message, caplog):
+def test_decode_invalid(short_message, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = get_client(decode=functools.partial(decode, 10))
@@ -139,12 +142,12 @@ def test_decode_nacks(short_message, caplog):
 
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", "b'1' can't be decoded, discarding message", False),
+        ("ERROR", f"{encode(message)} can't be decoded, sending SIGUSR2", False),
         ("INFO", "Received SIGINT, shutting down gracefully", True),
     ]
 
 
-def test_decode_raises(message, caplog):
+def test_decode_raiser(message, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = get_client(decode=raiser)
@@ -156,7 +159,7 @@ def test_decode_raises(message, caplog):
 
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"{encode(message)} can't be decoded, discarding message", False),
+        ("ERROR", f"{encode(message)} can't be decoded, sending SIGUSR2", False),
         ("INFO", "Received SIGINT, shutting down gracefully", True),
     ]
 

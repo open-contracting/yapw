@@ -1,3 +1,4 @@
+import signal
 from collections import namedtuple
 from unittest.mock import Mock, patch
 
@@ -56,33 +57,36 @@ def test_decode_bytes(nack, caplog):
     assert not caplog.records
 
 
-@patch("yapw.decorators.nack")
-def test_decode_invalid(nack, caplog):
+def test_decode_invalid(caplog):
+    function = Mock()
+    signal.signal(signal.SIGUSR2, function)
+
     method = Deliver(1, False)
     properties = BasicProperties("application/json")
 
     discard(default_decode, passes, "state", "channel", method, properties, b"invalid")
 
-    assert nack.call_count == 1
-    nack.assert_called_once_with("state", "channel", 1, requeue=False)
+    function.assert_called_once()
+    assert function.call_args[0][0] == signal.SIGUSR2
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "ERROR"
-    assert caplog.records[-1].message == "b'invalid' can't be decoded, discarding message"
+    assert caplog.records[-1].message == "b'invalid' can't be decoded, sending SIGUSR2"
     assert caplog.records[-1].exc_info
 
 
 @patch("yapw.decorators.nack")
 def test_discard(nack, caplog):
     method = Deliver(1, False)
+    properties = BasicProperties("application/json")
 
-    discard(default_decode, raises, "state", "channel", method, "properties", b'"body"')
+    discard(default_decode, raises, "state", "channel", method, properties, b'"body"')
 
     nack.assert_called_once_with("state", "channel", 1, requeue=False)
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "ERROR"
-    assert caplog.records[-1].message == "b'\"body\"' can't be decoded, discarding message"
+    assert caplog.records[-1].message == "Unhandled exception when consuming b'\"body\"', discarding message"
     assert caplog.records[-1].exc_info
 
 
@@ -90,7 +94,7 @@ def test_discard(nack, caplog):
 @patch("yapw.decorators.nack")
 def test_requeue(nack, redelivered, requeue_kwarg, caplog):
     method = Deliver(1, redelivered)
-    properties = BasicProperties("application/octet-stream")
+    properties = BasicProperties("application/json")
 
     requeue(default_decode, raises, "state", "channel", method, properties, b'"body"')
 

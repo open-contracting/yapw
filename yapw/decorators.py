@@ -15,16 +15,10 @@ Decorators look like this:
 .. code-block:: python
 
    def decorate(decode, callback, state, channel, method, properties, body):
-       try:
-           message = decode(state, channel, method, properties, body)
-       except Exception:
-           logger.exception("%r can't be decoded, discarding message", body)
-           nack(state, channel, method.delivery_tag, requeue=False)
-           return
-       try:
-           callback(state, channel, method, properties, message)
-       except Exception:
-           # do something
+    def errback():
+        # do something
+
+    _decorate(decode, callback, state, channel, method, properties, body, errback)
 
 User-defined decorators should avoid doing work outside the ``finally`` branch. Do work in the callback.
 """
@@ -53,54 +47,51 @@ def default_decode(state, channel, method, properties, body):
     return body
 
 
+def _decorate(decode, callback, state, channel, method, properties, body, errback):
+    try:
+        message = decode(state, channel, method, properties, body)
+        try:
+            callback(state, channel, method, properties, message)
+        except Exception:
+            errback()
+    except Exception:
+        logger.exception("%r can't be decoded, sending SIGUSR2", body)
+        os.kill(os.getpid(), signal.SIGUSR2)
+
+
 # https://stackoverflow.com/a/7099229/244258
 def halt(decode, callback, state, channel, method, properties, body):
     """
     If the callback raises an exception, send the SIGUSR1 signal to the main thread, without acknowledgment.
     """
-    try:
-        message = decode(state, channel, method, properties, body)
-    except Exception:
-        logger.exception("%r can't be decoded, discarding message", body)
-        nack(state, channel, method.delivery_tag, requeue=False)
-        return
-    try:
-        callback(state, channel, method, properties, message)
-    except Exception:
+
+    def errback():
         logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
         os.kill(os.getpid(), signal.SIGUSR1)
+
+    _decorate(decode, callback, state, channel, method, properties, body, errback)
 
 
 def discard(decode, callback, state, channel, method, properties, body):
     """
     If the callback raises an exception, nack's the message without requeueing.
     """
-    try:
-        message = decode(state, channel, method, properties, body)
-    except Exception:
-        logger.exception("%r can't be decoded, discarding message", body)
-        nack(state, channel, method.delivery_tag, requeue=False)
-        return
-    try:
-        callback(state, channel, method, properties, message)
-    except Exception:
+
+    def errback():
         logger.exception("Unhandled exception when consuming %r, discarding message", body)
         nack(state, channel, method.delivery_tag, requeue=False)
+
+    _decorate(decode, callback, state, channel, method, properties, body, errback)
 
 
 def requeue(decode, callback, state, channel, method, properties, body):
     """
     If the callback raises an exception, nack's the message, and requeues the message unless it was redelivered.
     """
-    try:
-        message = decode(state, channel, method, properties, body)
-    except Exception:
-        logger.exception("%r can't be decoded, discarding message", body)
-        nack(state, channel, method.delivery_tag, requeue=False)
-        return
-    try:
-        callback(state, channel, method, properties, message)
-    except Exception:
+
+    def errback():
         requeue = not method.redelivered
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
         nack(state, channel, method.delivery_tag, requeue=requeue)
+
+    _decorate(decode, callback, state, channel, method, properties, body, errback)

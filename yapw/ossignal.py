@@ -11,10 +11,11 @@ for signame in dir(signal):
 
 def install_signal_handlers(function):
     """
-    Installs handlers for the SIGTERM, SIGINT and SIGUSR1 signals.
+    Installs handlers for the SIGTERM, SIGINT, SIGUSR1 and SIGUSR2 signals.
 
     :param function: the handler
     """
     signal.signal(signal.SIGTERM, function)
     signal.signal(signal.SIGINT, function)
     signal.signal(signal.SIGUSR1, function)
+    signal.signal(signal.SIGUSR2, function)
