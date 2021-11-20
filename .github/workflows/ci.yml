@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, '3.10', pypy-3.7]
+        python-version: [3.6, 3.7, 3.8, 3.9, '3.10']
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -21,9 +21,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
       - run: pip install .[test]
-      # "orjson does not support PyPy" and fails to install. https://pypi.org/project/orjson/
-      - if: matrix.python-version != 'pypy-3.7'
-        name: Test
+      - name: Test
         env:
           TEST_RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports[5672] }}
         run: |
@@ -31,11 +29,6 @@ jobs:
           pip install orjson
           coverage run --append --source=yapw -m pytest
           pip uninstall -y orjson
-      - if: matrix.python-version == 'pypy-3.7'
-        name: Test
-        env:
-          TEST_RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports[5672] }}
-        run: pytest --cov yapw
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: coveralls --service=github
