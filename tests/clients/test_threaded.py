@@ -142,8 +142,8 @@ def test_decode_invalid(short_message, caplog):
 
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"{encode(message)} can't be decoded, sending SIGUSR2", False),
-        ("INFO", "Received SIGINT, shutting down gracefully", True),
+        ("ERROR", f"{encode(short_message)} can't be decoded, sending SIGUSR2", False),
+        ("INFO", "Received SIGUSR2, shutting down gracefully", True),
     ]
 
 
@@ -160,7 +160,7 @@ def test_decode_raiser(message, caplog):
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
         ("ERROR", f"{encode(message)} can't be decoded, sending SIGUSR2", False),
-        ("INFO", "Received SIGINT, shutting down gracefully", True),
+        ("INFO", "Received SIGUSR2, shutting down gracefully", True),
     ]
 
 
