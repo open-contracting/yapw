@@ -4,6 +4,11 @@ Changelog
 0.0.5 (Unreleased)
 ------------------
 
+Added
+~~~~~
+
+-  :class:`pika.clients.Publisher` (and children) accepts ``encoder`` and ``content_type`` keyword arguments.
+
 Changed
 ~~~~~~~
 

@@ -52,7 +52,7 @@ import pika
 
 from yapw.decorators import halt
 from yapw.ossignal import install_signal_handlers, signal_names
-from yapw.util import basic_publish_debug_args, basic_publish_kwargs
+from yapw.util import basic_publish_debug_args, basic_publish_kwargs, json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -151,20 +151,37 @@ class Publisher:
     durable = None
     delivery_mode = None
 
-    __safe__ = ["exchange", "delivery_mode"]
+    __safe__ = ["exchange", "encoder", "content_type", "delivery_mode"]
 
     def __init__(
-        self, *, exchange="", exchange_type="direct", routing_key_template="{exchange}_{routing_key}", **kwargs
+        self,
+        *,
+        exchange="",
+        exchange_type="direct",
+        encoder=json_dumps,
+        content_type="application/json",
+        routing_key_template="{exchange}_{routing_key}",
+        **kwargs
     ):
         """
         Declares an exchange, unless using the default exchange.
 
+        When publishing a message, by default, its body is encoded as compact JSON using :func:`yapw.util.json_dumps`,
+        and its content type is set to "application/json". Use the ``encoder`` and ``content_type`` keyword arguments
+        to change this behavior. The ``encoder`` should return bytes.
+
         :param str exchange: the exchange name
+        :param encoder: the message body's encoder
+        :param content_type: the message's content type
         """
         super().__init__(routing_key_template=routing_key_template, **kwargs)
 
         #: The exchange name.
         self.exchange = exchange
+        #: The message body's encoder.
+        self.encoder = encoder
+        #: The message's content type.
+        self.content_type = content_type
 
         if self.exchange:
             self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=self.durable)

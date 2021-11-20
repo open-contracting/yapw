@@ -6,10 +6,11 @@ import pika
 import pytest
 
 from yapw.methods import ack, nack, publish
+from yapw.util import json_dumps
 
 Connection = namedtuple("Connection", "is_open add_callback_threadsafe")
 Channel = namedtuple("Channel", "channel_number is_open basic_ack basic_nack basic_publish")
-State = namedtuple("State", "format_routing_key connection exchange delivery_mode")
+State = namedtuple("State", "format_routing_key connection exchange encoder content_type delivery_mode")
 
 ack_nack_parameters = [(ack, "ack", [1]), (nack, "nack", [1])]
 parameters = ack_nack_parameters + [(publish, "publish", [{"message": "value"}, "q"])]
@@ -19,12 +20,26 @@ def format_routing_key(exchange, routing_key):
     return f"{exchange}_{routing_key}"
 
 
-def test_publish():
+def dumps(message):
+    return b"overridden"
+
+
+@pytest.mark.parametrize(
+    "encoder,content_type,body",
+    [(json_dumps, "application/json", b'{"message":"value"}'), (dumps, "text/plain", b"overridden")],
+)
+def test_publish(encoder, content_type, body):
     connection = create_autospec(Connection, is_open=True)
     channel = create_autospec(Channel, channel_number=1, is_open=True)
     function = functools.partial(format_routing_key, "exch")
     state = create_autospec(
-        State, connection=connection, format_routing_key=function, exchange="exch", delivery_mode=2
+        State,
+        connection=connection,
+        format_routing_key=function,
+        exchange="exch",
+        encoder=encoder,
+        content_type=content_type,
+        delivery_mode=2,
     )
 
     publish(state, channel, {"message": "value"}, "q")
@@ -34,9 +49,9 @@ def test_publish():
     cb = connection.add_callback_threadsafe.call_args[0][0]
     cb()
 
-    properties = pika.BasicProperties(delivery_mode=2, content_type="application/json")
+    properties = pika.BasicProperties(delivery_mode=2, content_type=content_type)
     getattr(channel, "basic_publish").assert_called_once_with(
-        exchange="exch", routing_key="exch_q", body=b'{"message":"value"}', properties=properties
+        exchange="exch", routing_key="exch_q", body=body, properties=properties
     )
 
 

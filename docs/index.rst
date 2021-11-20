@@ -67,6 +67,4 @@ yapw implements a pattern whereby the consumer declares and binds a queue. The q
 
 The :func:`~pika.methods.ack`, :func:`~pika.methods.nack` and  :func:`~pika.methods.publish` methods are safe to call from the consumer callback. They log an error if the connection or channel isn't open.
 
-yapw assumes that messages are JSON-serializable.
-
 Copyright (c) 2021 Open Contracting Partnership, released under the BSD license
