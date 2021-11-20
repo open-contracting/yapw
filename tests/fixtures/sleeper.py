@@ -25,7 +25,7 @@ def callback(state, channel, method, properties, body):
 
 
 def main():
-    client = Client(exchange="ocdskingfisherexport_development")
+    client = Client(exchange="yapw_development")
     client.consume(callback, "sleep")
 
 
