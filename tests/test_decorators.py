@@ -1,5 +1,5 @@
 from collections import namedtuple
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -63,14 +63,13 @@ def test_decode_invalid(nack, caplog):
 
     discard(default_decode, passes, "state", "channel", method, properties, b"invalid")
 
-    assert nack.call_count == 2
-    nack.assert_has_calls([call("state", "channel", 1, requeue=False), call("state", "channel", 1, requeue=False)])
+    assert nack.call_count == 1
+    nack.assert_called_once_with("state", "channel", 1, requeue=False)
 
-    assert len(caplog.records) == 2
-    assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", "b'invalid' is not valid JSON, discarding message", False),
-        ("ERROR", "Unhandled exception when consuming b'invalid', discarding message", False),
-    ]
+    assert len(caplog.records) == 1
+    assert caplog.records[-1].levelname == "ERROR"
+    assert caplog.records[-1].message == "b'invalid' can't be decoded, discarding message"
+    assert caplog.records[-1].exc_info
 
 
 @patch("yapw.decorators.nack")
@@ -83,7 +82,7 @@ def test_discard(nack, caplog):
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "ERROR"
-    assert caplog.records[-1].message == "Unhandled exception when consuming b'\"body\"', discarding message"
+    assert caplog.records[-1].message == "b'\"body\"' can't be decoded, discarding message"
     assert caplog.records[-1].exc_info
 
 
@@ -91,8 +90,9 @@ def test_discard(nack, caplog):
 @patch("yapw.decorators.nack")
 def test_requeue(nack, redelivered, requeue_kwarg, caplog):
     method = Deliver(1, redelivered)
+    properties = BasicProperties("application/octet-stream")
 
-    requeue(default_decode, raises, "state", "channel", method, "properties", b'"body"')
+    requeue(default_decode, raises, "state", "channel", method, properties, b'"body"')
 
     nack.assert_called_once_with("state", "channel", 1, requeue=requeue_kwarg)
 

@@ -75,7 +75,12 @@ def raiser(state, channel, method, properties, body):
     raise Exception("message")
 
 
-def warner(state, channel, method, properties, body):
+def ack_warner(state, channel, method, properties, body):
+    logger.warning(body)
+    ack(state, channel, method.delivery_tag)
+
+
+def nack_warner(state, channel, method, properties, body):
     logger.warning(body)
     nack(state, channel, method.delivery_tag)
 
@@ -87,12 +92,7 @@ def writer(state, channel, method, properties, body):
 
 # Decoders
 def decode(index, state, channel, method, properties, body):
-    try:
-        return body.decode()[index]
-    except IndexError:
-        logger.exception("%r too short, discarding message", body)
-        nack(state, channel, method.delivery_tag, requeue=False)
-        raise
+    return body.decode()[index]
 
 
 @pytest.mark.parametrize("signum,signame", [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM")])
@@ -117,13 +117,14 @@ def test_shutdown(signum, signame, message, caplog):
 def test_decode_success(short_message, caplog):
     consumer = get_client(decode=functools.partial(decode, 0))
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(warner, "q")
+    consumer.consume(ack_warner, "q")
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) > 1
-    assert all(r.levelname == "WARNING" and r.message == "1" for r in caplog.records)
+    assert len(caplog.records) == 1
+    assert caplog.records[-1].levelname == "WARNING"
+    assert caplog.records[-1].message == "1"
 
 
 def test_decode_nacks(short_message, caplog):
@@ -131,16 +132,15 @@ def test_decode_nacks(short_message, caplog):
 
     consumer = get_client(decode=functools.partial(decode, 10))
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(warner, "q")
+    consumer.consume(ack_warner, "q")
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 3
+    assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", "b'1' too short, discarding message", False),
-        ("ERROR", "Unhandled exception when consuming b'1', sending SIGUSR1", False),
-        ("INFO", "Received SIGUSR1, shutting down gracefully", True),
+        ("ERROR", "b'1' can't be decoded, discarding message", False),
+        ("INFO", "Received SIGINT, shutting down gracefully", True),
     ]
 
 
@@ -149,15 +149,15 @@ def test_decode_raises(message, caplog):
 
     consumer = get_client(decode=raiser)
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(warner, "q")
+    consumer.consume(ack_warner, "q")
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"Unhandled exception when consuming {encode(message)}, sending SIGUSR1", False),
-        ("INFO", "Received SIGUSR1, shutting down gracefully", True),
+        ("ERROR", f"{encode(message)} can't be decoded, discarding message", False),
+        ("INFO", "Received SIGINT, shutting down gracefully", True),
     ]
 
 
@@ -238,14 +238,14 @@ def test_publish(message, caplog):
 def test_consume_declares_queue(caplog):
     declarer = get_client()
     declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    declarer.consume(warner, "q")
+    declarer.consume(nack_warner, "q")
 
     publisher = get_client()
     publisher.publish({"message": "value"}, "q")
 
     consumer = get_client()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(warner, "q")
+    consumer.consume(nack_warner, "q")
 
     publisher.channel.queue_purge("yapw_test_q")
     publisher.close()

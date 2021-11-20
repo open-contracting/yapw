@@ -17,6 +17,11 @@ Decorators look like this:
    def decorate(decode, callback, state, channel, method, properties, body):
        try:
            message = decode(state, channel, method, properties, body)
+       except Exception:
+           logger.exception("%r can't be decoded, discarding message", body)
+           nack(state, channel, method.delivery_tag, requeue=False)
+           return
+       try:
            callback(state, channel, method, properties, message)
        except Exception:
            # do something
@@ -41,18 +46,11 @@ def default_decode(state, channel, method, properties, body):
 
     Uses `orjson <https://pypi.org/project/orjson/>`__ if available.
 
-    If the JSON is not valid, nack's the message without requeueing, and re-raises the exception.
-
     :returns: a Python object
     """
-    if properties.content_type != "application/json":
-        return body
-    try:
+    if properties.content_type == "application/json":
         return jsonlib.loads(body)
-    except jsonlib.JSONDecodeError:
-        logger.exception("%r is not valid JSON, discarding message", body)
-        nack(state, channel, method.delivery_tag, requeue=False)
-        raise
+    return body
 
 
 # https://stackoverflow.com/a/7099229/244258
@@ -62,6 +60,11 @@ def halt(decode, callback, state, channel, method, properties, body):
     """
     try:
         message = decode(state, channel, method, properties, body)
+    except Exception:
+        logger.exception("%r can't be decoded, discarding message", body)
+        nack(state, channel, method.delivery_tag, requeue=False)
+        return
+    try:
         callback(state, channel, method, properties, message)
     except Exception:
         logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
@@ -74,6 +77,11 @@ def discard(decode, callback, state, channel, method, properties, body):
     """
     try:
         message = decode(state, channel, method, properties, body)
+    except Exception:
+        logger.exception("%r can't be decoded, discarding message", body)
+        nack(state, channel, method.delivery_tag, requeue=False)
+        return
+    try:
         callback(state, channel, method, properties, message)
     except Exception:
         logger.exception("Unhandled exception when consuming %r, discarding message", body)
@@ -86,6 +94,11 @@ def requeue(decode, callback, state, channel, method, properties, body):
     """
     try:
         message = decode(state, channel, method, properties, body)
+    except Exception:
+        logger.exception("%r can't be decoded, discarding message", body)
+        nack(state, channel, method.delivery_tag, requeue=False)
+        return
+    try:
         callback(state, channel, method, properties, message)
     except Exception:
         requeue = not method.redelivered
