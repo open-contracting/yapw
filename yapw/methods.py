@@ -1,5 +1,5 @@
 """
-Functions for calling RabbitMQ methods from the context of a consumer callback.
+Functions for calling channel methods from the context of a consumer callback.
 """
 
 import functools
@@ -16,7 +16,7 @@ def publish(state, channel, message, routing_key, *args, **kwargs):
 
     :param state: an object with a ``connection`` attribute
     :param channel: the channel from which to call ``basic_publish``
-    :param message: a JSON-serializable message
+    :param message: a decoded message
     :param str routing_key: the routing key
     """
     keywords = basic_publish_kwargs(state, message, routing_key)

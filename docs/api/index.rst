@@ -6,3 +6,4 @@ API reference
    clients
    decorators
    methods
+   util

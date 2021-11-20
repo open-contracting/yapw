@@ -27,10 +27,11 @@ def json_dumps(message):
 
 def default_encode(message, content_type):
     """
-    If the content type is "application/json", serializes the Python object to JSON formatted bytes. Otherwise, returns
-    the Python object (which might be bytes already).
+    If the content type is "application/json", serializes the decoded message to JSON formatted bytes. Otherwise,
+    returns the decoded message (which might be bytes already).
 
-    :param message: a Python object
+    :param message: a decoded message
+    :param str content_type: the message's content type
     :returns: bytes
     :rtype: bytes
     """
@@ -45,7 +46,7 @@ def basic_publish_kwargs(state, message, routing_key):
 
     :param state: an object with the attributes ``format_routing_key``, ``exchange``, ``encode``, ``content_type`` and
                   ``delivery_mode``
-    :param message: a JSON-serializable message
+    :param message: a decoded message
     :param str routing_key: the routing key
     :returns: keyword arguments for ``basic_publish``
     :rtype: dict
@@ -60,6 +61,11 @@ def basic_publish_kwargs(state, message, routing_key):
 
 def basic_publish_debug_args(channel, message, keywords):
     """
+    Prepares arguments for ``logger.debug`` related to publishing a message.
+
+    :param channel: the channel from which to call ``basic_publish``
+    :param message: a decoded message
+    :param dict keywords: keyword arguments for ``basic_publish``
     :returns: arguments for ``logger.debug``
     :rtype: tuple
     """

@@ -72,8 +72,8 @@ class Base:
     Provides :meth:`~Base.format_routing_key`, which is used by all methods in other mixins that accept routing keys,
     in order to namespace the routing keys.
 
-    Attributes that can - and are expected to - be used safely in consumer callbacks should be listed in a ``__safe__``
-    class attribute.
+    Other mixins should list attributes that can - and are expected to - be used safely in consumer callbacks in a
+    ``__safe__`` class attribute.
     """
 
     __safe__ = ["format_routing_key"]
@@ -92,6 +92,8 @@ class Base:
         Returns the formatted routing key.
 
         :param str routing_key: the routing key
+        :returns: the formatted routing key
+        :rtype: str
         """
         return self.routing_key_template.format(routing_key=routing_key, **self.__dict__)
 
@@ -100,6 +102,9 @@ class Base:
     def __getsafe__(self):
         """
         Returns the attributes that can be used safely in consumer callbacks across all base classes and this class.
+
+        :returns: the attributes that can be used safely in consumer callbacks
+        :rtype: set
         """
         return {attr for base in type(self).__bases__ for attr in getattr(base, "__safe__", [])} | set(
             type(self).__safe__
@@ -172,7 +177,7 @@ class Publisher:
 
         :param str exchange: the exchange name
         :param encode: the message body's encoder
-        :param content_type: the message's content type
+        :param str content_type: the message's content type
         """
         super().__init__(routing_key_template=routing_key_template, **kwargs)
 
@@ -201,7 +206,7 @@ class Publisher:
         """
         Publishes from the main thread, with the provided message and routing key, and with the configured exchange.
 
-        :param message: a JSON-serializable message
+        :param message: a decoded message
         :param str routing_key: the routing key
         """
         keywords = basic_publish_kwargs(self, message, routing_key)
