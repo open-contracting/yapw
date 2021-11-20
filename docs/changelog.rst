@@ -1,13 +1,29 @@
 Changelog
 =========
 
+0.0.5 (2021-11-19)
+------------------
+
+Added
+~~~~~
+
+-  :class:`yapw.clients.Threaded` accepts a ``decode`` keyword argument.
+-  All :mod:`yapw.decorators` functions pass decoded messages to consumer callbacks.
+
+Changed
+~~~~~~~
+
+-  Add ``decode`` as first argument to :mod:`yapw.decorators` functions.
+-  :class:`yapw.clients.Publisher`: Rename ``encoder`` keyword argument to ``encode``.
+-  :class:`yapw.clients.Publisher`'s ``encode`` keyword argument defaults to :func:`yapw.util.default_encode`.
+
 0.0.4 (2021-11-19)
 ------------------
 
 Added
 ~~~~~
 
--  :class:`pika.clients.Publisher` (and children) accepts ``encoder`` and ``content_type`` keyword arguments.
+-  :class:`yapw.clients.Publisher` (and children) accepts ``encoder`` and ``content_type`` keyword arguments.
 
 Changed
 ~~~~~~~
@@ -21,12 +37,12 @@ Changed
 Added
 ~~~~~
 
--  Add and use :meth:`pika.decorators.halt` as the default decorator.
+-  Add and use :func:`yapw.decorators.halt` as the default decorator.
 
 Changed
 ~~~~~~~
 
--  Rename :meth:`pika.decorators.rescue` to :meth:`~pika.decorators.discard`.
+-  Rename :func:`yapw.decorators.rescue` to :func:`~yapw.decorators.discard`.
 
 0.0.2 (2021-11-19)
 ------------------
@@ -34,7 +50,7 @@ Changed
 Added
 ~~~~~
 
--  Add :meth:`pika.methods.publish` to publish messages from the context of a consumer callback.
+-  Add :func:`yapw.methods.publish` to publish messages from the context of a consumer callback.
 
 Changed
 ~~~~~~~

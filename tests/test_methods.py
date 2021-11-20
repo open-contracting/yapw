@@ -6,11 +6,11 @@ import pika
 import pytest
 
 from yapw.methods import ack, nack, publish
-from yapw.util import json_dumps
+from yapw.util import default_encode
 
 Connection = namedtuple("Connection", "is_open add_callback_threadsafe")
 Channel = namedtuple("Channel", "channel_number is_open basic_ack basic_nack basic_publish")
-State = namedtuple("State", "format_routing_key connection exchange encoder content_type delivery_mode")
+State = namedtuple("State", "format_routing_key connection exchange encode content_type delivery_mode")
 
 ack_nack_parameters = [(ack, "ack", [1]), (nack, "nack", [1])]
 parameters = ack_nack_parameters + [(publish, "publish", [{"message": "value"}, "q"])]
@@ -20,15 +20,15 @@ def format_routing_key(exchange, routing_key):
     return f"{exchange}_{routing_key}"
 
 
-def dumps(message):
+def dumps(message, content_type):
     return b"overridden"
 
 
 @pytest.mark.parametrize(
-    "encoder,content_type,body",
-    [(json_dumps, "application/json", b'{"message":"value"}'), (dumps, "text/plain", b"overridden")],
+    "encode,content_type,body",
+    [(default_encode, "application/json", b'{"message":"value"}'), (dumps, "text/plain", b"overridden")],
 )
-def test_publish(encoder, content_type, body):
+def test_publish(encode, content_type, body):
     connection = create_autospec(Connection, is_open=True)
     channel = create_autospec(Channel, channel_number=1, is_open=True)
     function = functools.partial(format_routing_key, "exch")
@@ -37,7 +37,7 @@ def test_publish(encoder, content_type, body):
         connection=connection,
         format_routing_key=function,
         exchange="exch",
-        encoder=encoder,
+        encode=encode,
         content_type=content_type,
         delivery_mode=2,
     )

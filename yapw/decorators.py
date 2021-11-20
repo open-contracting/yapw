@@ -14,9 +14,10 @@ Decorators look like this:
 
 .. code-block:: python
 
-   def decorate(callback, state, channel, method, properties, body):
+   def decorate(decode, callback, state, channel, method, properties, body):
        try:
-           callback(state, channel, method, properties, body)
+           message = decode(state, channel, method, properties, body)
+           callback(state, channel, method, properties, message)
        except Exception:
            # do something
 
@@ -28,40 +29,64 @@ import os
 import signal
 
 from yapw.methods import nack
+from yapw.util import jsonlib
 
 logger = logging.getLogger(__name__)
 
 
-def halt(callback, state, channel, method, properties, body):
+def default_decode(state, channel, method, properties, body):
+    """
+    If the content type is "application/json", deserializes the JSON formatted bytes to a Python object. Otherwise,
+    returns the bytes (which the consumer callback can deserialize independently).
+
+    Uses `orjson <https://pypi.org/project/orjson/>`__ if available.
+
+    If the JSON is not valid, nack's the message without requeueing, and re-raises the exception.
+
+    :returns: a Python object
+    """
+    if properties.content_type != "application/json":
+        return body
+    try:
+        return jsonlib.loads(body)
+    except jsonlib.JSONDecodeError:
+        logger.exception("%r is not valid JSON, discarding message", body)
+        nack(state, channel, method.delivery_tag, requeue=False)
+        raise
+
+
+# https://stackoverflow.com/a/7099229/244258
+def halt(decode, callback, state, channel, method, properties, body):
     """
     If the callback raises an exception, send the SIGUSR1 signal to the main thread, without acknowledgment.
     """
     try:
-        callback(state, channel, method, properties, body)
+        message = decode(state, channel, method, properties, body)
+        callback(state, channel, method, properties, message)
     except Exception:
         logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
-        # https://stackoverflow.com/a/7099229/244258
         os.kill(os.getpid(), signal.SIGUSR1)
 
 
-def discard(callback, state, channel, method, properties, body):
+def discard(decode, callback, state, channel, method, properties, body):
     """
-    If the callback raises an exception, nack's the message without requeuing.
+    If the callback raises an exception, nack's the message without requeueing.
     """
     try:
-        callback(state, channel, method, properties, body)
+        message = decode(state, channel, method, properties, body)
+        callback(state, channel, method, properties, message)
     except Exception:
-        requeue = False
-        logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
-        nack(state, channel, method.delivery_tag, requeue=requeue)
+        logger.exception("Unhandled exception when consuming %r, discarding message", body)
+        nack(state, channel, method.delivery_tag, requeue=False)
 
 
-def requeue(callback, state, channel, method, properties, body):
+def requeue(decode, callback, state, channel, method, properties, body):
     """
     If the callback raises an exception, nack's the message, and requeues the message unless it was redelivered.
     """
     try:
-        callback(state, channel, method, properties, body)
+        message = decode(state, channel, method, properties, body)
+        callback(state, channel, method, properties, message)
     except Exception:
         requeue = not method.redelivered
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)

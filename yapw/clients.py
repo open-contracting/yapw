@@ -50,9 +50,9 @@ from collections import namedtuple
 
 import pika
 
-from yapw.decorators import halt
+from yapw.decorators import default_decode, halt
 from yapw.ossignal import install_signal_handlers, signal_names
-from yapw.util import basic_publish_debug_args, basic_publish_kwargs, json_dumps
+from yapw.util import basic_publish_debug_args, basic_publish_kwargs, default_encode
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +61,8 @@ logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 def _on_message(channel, method, properties, body, args):
-    (state, threads, callback, decorator) = args
-    thread = threading.Thread(target=decorator, args=(callback, state, channel, method, properties, body))
+    (threads, decorator, decode, callback, state) = args
+    thread = threading.Thread(target=decorator, args=(decode, callback, state, channel, method, properties, body))
     thread.start()
     threads.append(thread)
 
@@ -72,7 +72,7 @@ class Base:
     Provides :meth:`~Base.format_routing_key`, which is used by all methods in other mixins that accept routing keys,
     in order to namespace the routing keys.
 
-    Attributes that can - and are expected to be - used safely in consumer callbacks should be listed in a ``__safe__``
+    Attributes that can - and are expected to - be used safely in consumer callbacks should be listed in a ``__safe__``
     class attribute.
     """
 
@@ -151,14 +151,14 @@ class Publisher:
     durable = None
     delivery_mode = None
 
-    __safe__ = ["exchange", "encoder", "content_type", "delivery_mode"]
+    __safe__ = ["exchange", "encode", "content_type", "delivery_mode"]
 
     def __init__(
         self,
         *,
         exchange="",
         exchange_type="direct",
-        encoder=json_dumps,
+        encode=default_encode,
         content_type="application/json",
         routing_key_template="{exchange}_{routing_key}",
         **kwargs
@@ -166,12 +166,12 @@ class Publisher:
         """
         Declares an exchange, unless using the default exchange.
 
-        When publishing a message, by default, its body is encoded as compact JSON using :func:`yapw.util.json_dumps`,
-        and its content type is set to "application/json". Use the ``encoder`` and ``content_type`` keyword arguments
-        to change this behavior. The ``encoder`` should return bytes.
+        When publishing a message, by default, its body is encoded using :func:`yapw.util.default_encode`, and its
+        content type is set to "application/json". Use the ``encode`` and ``content_type`` keyword arguments to change
+        this. The ``encode`` must be a function that accepts ``(message, content_type)`` arguments and returns bytes.
 
         :param str exchange: the exchange name
-        :param encoder: the message body's encoder
+        :param encode: the message body's encoder
         :param content_type: the message's content type
         """
         super().__init__(routing_key_template=routing_key_template, **kwargs)
@@ -179,7 +179,7 @@ class Publisher:
         #: The exchange name.
         self.exchange = exchange
         #: The message body's encoder.
-        self.encoder = encoder
+        self.encode = encode
         #: The message's content type.
         self.content_type = content_type
 
@@ -234,12 +234,21 @@ class Threaded:
     Runs the consumer callback in separate threads.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, decode=default_decode, **kwargs):
         """
         Installs handlers for the SIGTERM and SIGINT signals to stop consuming messages, wait for threads to terminate,
         and close the connection.
+
+        When consuming a message, by default, its body is decoded using :func:`yapw.decorators.default_decode`. Use the
+        ``decode`` keyword argument to change this. The ``decode`` must be a function that accepts ``(state, channel,
+        method, properties, body)`` arguments (like the consumer callback) and returns a decoded message.
+
+        :param decode: the message body's decoder
         """
         super().__init__(**kwargs)
+
+        #: The message body's decoder.
+        self.decode = decode
 
         install_signal_handlers(self._on_shutdown)
 
@@ -247,6 +256,10 @@ class Threaded:
         """
         Declares a queue named after and bound by the routing key, and starts consuming messages from that queue,
         dispatching messages to the decorated callback.
+
+        The consumer callback must be a function that accepts ``(state, channel, method, properties, body)`` arguments,
+        all but the first of which are the same as Pika's ``basic_consume``. The ``state`` argument is needed to pass
+        attributes to :mod:`yapw.methods` functions.
 
         :param callback: the consumer callback
         :param str routing_key: the routing key
@@ -261,7 +274,7 @@ class Threaded:
         state = State(**{attr: getattr(self, attr) for attr in self.__getsafe__})
 
         threads = []
-        on_message_callback = functools.partial(_on_message, args=(state, threads, callback, decorator))
+        on_message_callback = functools.partial(_on_message, args=(threads, decorator, self.decode, callback, state))
         self.channel.basic_consume(formatted, on_message_callback)
 
         logger.debug("Consuming messages on channel %s from queue %s", self.channel.channel_number, formatted)

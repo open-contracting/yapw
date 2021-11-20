@@ -5,7 +5,7 @@ import pika
 import pytest
 
 from yapw.clients import Base, Blocking, Durable, Transient
-from yapw.util import json_dumps
+from yapw.util import default_encode
 
 
 class DurableClient(Durable, Blocking, Base):
@@ -16,7 +16,7 @@ class TransientClient(Transient, Blocking, Base):
     pass
 
 
-def dumps(message):
+def dumps(message, content_type):
     return b"overridden"
 
 
@@ -28,7 +28,7 @@ def test_init_default(connection, client_class):
     client.channel.exchange_declare.assert_not_called()
 
     assert client.exchange == ""
-    assert client.encoder == json_dumps
+    assert client.encode == default_encode
     assert client.content_type == "application/json"
     assert client.format_routing_key("test") == "_test"
 
@@ -39,7 +39,7 @@ def test_init_kwargs(connection, client_class, durable):
     client = client_class(
         exchange="exch",
         exchange_type="fanout",
-        encoder=dumps,
+        encode=dumps,
         content_type="application/octet-stream",
         routing_key_template="{routing_key}_{exchange}",
     )
@@ -47,7 +47,7 @@ def test_init_kwargs(connection, client_class, durable):
     client.channel.exchange_declare.assert_called_once_with(exchange="exch", exchange_type="fanout", durable=durable)
 
     assert client.exchange == "exch"
-    assert client.encoder == dumps
+    assert client.encode == dumps
     assert client.content_type == "application/octet-stream"
     assert client.format_routing_key("test") == "test_exch"
 

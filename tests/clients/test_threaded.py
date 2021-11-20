@@ -1,4 +1,5 @@
 import functools
+import json
 import logging
 import os
 import signal
@@ -7,7 +8,7 @@ import time
 import pytest
 
 from yapw.clients import Base, Blocking, Threaded, Transient
-from yapw.decorators import requeue
+from yapw.decorators import discard, requeue
 from yapw.methods import ack, nack, publish
 
 logger = logging.getLogger(__name__)
@@ -20,21 +21,49 @@ class Client(Threaded, Transient, Blocking, Base):
     pass
 
 
-def get_client():
-    return Client(url=RABBIT_URL, exchange="yapw_test")
+def get_client(**kwargs):
+    return Client(url=RABBIT_URL, exchange="yapw_test", **kwargs)
 
 
-@pytest.fixture
-def message():
-    publisher = get_client()
+def encode(message):
+    if not isinstance(message, bytes):
+        return json.dumps(message, separators=(",", ":")).encode()
+    return message
+
+
+def kill(signum):
+    os.kill(os.getpid(), signum)
+    # The signal should be handled once.
+    os.kill(os.getpid(), signum)
+
+
+@pytest.fixture(params=[({}, {"message": "value"}), ({"content_type": "application/octet-stream"}, b"message value")])
+def message(request):
+    kwargs, body = request.param
+
+    publisher = get_client(**kwargs)
     publisher.declare_queue("q")
-    publisher.publish({}, "q")
-    yield
+    publisher.publish(body, "q")
+    yield body
     # Purge the queue, instead of waiting for a restart.
     publisher.channel.queue_purge("yapw_test_q")
     publisher.close()
 
 
+@pytest.fixture
+def short_message(request):
+    body = 1
+
+    publisher = get_client()
+    publisher.declare_queue("q")
+    publisher.publish(body, "q")
+    yield body
+    # Purge the queue, instead of waiting for a restart.
+    publisher.channel.queue_purge("yapw_test_q")
+    publisher.close()
+
+
+# Consumer callbacks.
 def sleeper(state, channel, method, properties, body):
     logger.info("Sleep")
     time.sleep(DELAY * 2)
@@ -47,7 +76,7 @@ def raiser(state, channel, method, properties, body):
 
 
 def warner(state, channel, method, properties, body):
-    logger.warning("Oh!")
+    logger.warning(body)
     nack(state, channel, method.delivery_tag)
 
 
@@ -56,10 +85,14 @@ def writer(state, channel, method, properties, body):
     ack(state, channel, method.delivery_tag)
 
 
-def kill(signum):
-    os.kill(os.getpid(), signum)
-    # The signal should be handled once.
-    os.kill(os.getpid(), signum)
+# Decoders
+def decode(index, state, channel, method, properties, body):
+    try:
+        return body.decode()[index]
+    except IndexError:
+        logger.exception("%r too short, discarding message", body)
+        nack(state, channel, method.delivery_tag, requeue=False)
+        raise
 
 
 @pytest.mark.parametrize("signum,signame", [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM")])
@@ -81,6 +114,53 @@ def test_shutdown(signum, signame, message, caplog):
     ]
 
 
+def test_decode_success(short_message, caplog):
+    consumer = get_client(decode=functools.partial(decode, 0))
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    consumer.consume(warner, "q")
+
+    assert consumer.channel.is_closed
+    assert consumer.connection.is_closed
+
+    assert len(caplog.records) > 1
+    assert all(r.levelname == "WARNING" and r.message == "1" for r in caplog.records)
+
+
+def test_decode_nacks(short_message, caplog):
+    caplog.set_level(logging.INFO)
+
+    consumer = get_client(decode=functools.partial(decode, 10))
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    consumer.consume(warner, "q")
+
+    assert consumer.channel.is_closed
+    assert consumer.connection.is_closed
+
+    assert len(caplog.records) == 3
+    assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
+        ("ERROR", "b'1' too short, discarding message", False),
+        ("ERROR", "Unhandled exception when consuming b'1', sending SIGUSR1", False),
+        ("INFO", "Received SIGUSR1, shutting down gracefully", True),
+    ]
+
+
+def test_decode_raises(message, caplog):
+    caplog.set_level(logging.INFO)
+
+    consumer = get_client(decode=raiser)
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    consumer.consume(warner, "q")
+
+    assert consumer.channel.is_closed
+    assert consumer.connection.is_closed
+
+    assert len(caplog.records) == 2
+    assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
+        ("ERROR", f"Unhandled exception when consuming {encode(message)}, sending SIGUSR1", False),
+        ("INFO", "Received SIGUSR1, shutting down gracefully", True),
+    ]
+
+
 def test_halt(message, caplog):
     caplog.set_level(logging.INFO)
 
@@ -92,10 +172,26 @@ def test_halt(message, caplog):
     assert consumer.connection.is_closed
 
     assert len(caplog.records) == 2
-    # raise Exception(repr([r for r in caplog.records]))
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", "Unhandled exception when consuming b'{}', sending SIGUSR1", False),
+        ("ERROR", f"Unhandled exception when consuming {encode(message)}, sending SIGUSR1", False),
         ("INFO", "Received SIGUSR1, shutting down gracefully", True),
+    ]
+
+
+def test_discard(message, caplog):
+    caplog.set_level(logging.INFO)
+
+    consumer = get_client()
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    consumer.consume(raiser, "q", decorator=discard)
+
+    assert consumer.channel.is_closed
+    assert consumer.connection.is_closed
+
+    assert len(caplog.records) == 2
+    assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
+        ("ERROR", f"Unhandled exception when consuming {encode(message)}, discarding message", False),
+        ("INFO", "Received SIGINT, shutting down gracefully", True),
     ]
 
 
@@ -111,8 +207,8 @@ def test_requeue(message, caplog):
 
     assert len(caplog.records) == 3
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", "Unhandled exception when consuming b'{}' (requeue=True)", False),
-        ("ERROR", "Unhandled exception when consuming b'{}' (requeue=False)", False),
+        ("ERROR", f"Unhandled exception when consuming {encode(message)} (requeue=True)", False),
+        ("ERROR", f"Unhandled exception when consuming {encode(message)} (requeue=False)", False),
         ("INFO", "Received SIGINT, shutting down gracefully", True),
     ]
 
@@ -145,7 +241,7 @@ def test_consume_declares_queue(caplog):
     declarer.consume(warner, "q")
 
     publisher = get_client()
-    publisher.publish({}, "q")
+    publisher.publish({"message": "value"}, "q")
 
     consumer = get_client()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
@@ -158,4 +254,4 @@ def test_consume_declares_queue(caplog):
     assert consumer.connection.is_closed
 
     assert len(caplog.records) > 1
-    assert all(r.levelname == "WARNING" and r.message == "Oh!" for r in caplog.records)
+    assert all(r.levelname == "WARNING" and r.message == "{'message': 'value'}" for r in caplog.records)
