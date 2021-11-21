@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def publish(state, channel, message, routing_key, *args, **kwargs):
     """
-    Publishes with the provided message and routing key, and with the exchange set by the provided state.
+    Publish with the provided message and routing key, and with the exchange set by the provided state.
 
     :param state: an object with a ``connection`` attribute
     :param channel: the channel from which to call ``basic_publish``
@@ -28,7 +28,7 @@ def publish(state, channel, message, routing_key, *args, **kwargs):
 
 def ack(state, channel, delivery_tag=0, **kwargs):
     """
-    Acks a message by its delivery tag.
+    Ack a message by its delivery tag.
 
     :param state: an object with a ``connection`` attribute
     :param channel: the channel from which to call ``basic_ack``
@@ -40,7 +40,7 @@ def ack(state, channel, delivery_tag=0, **kwargs):
 
 def nack(state, channel, delivery_tag=0, **kwargs):
     """
-    Nacks a message by its delivery tag.
+    Nack a message by its delivery tag.
 
     :param state: an object with a ``connection`` attribute
     :param channel: the channel from which to call ``basic_nack``

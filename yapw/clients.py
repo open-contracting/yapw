@@ -1,5 +1,5 @@
 """
-Mixins that can be composed in layers. For example:
+Mixins that can be combined to create a RabbitMQ client. For example:
 
 .. code-block:: python
 
@@ -89,7 +89,7 @@ class Base:
 
     def format_routing_key(self, routing_key):
         """
-        Returns the formatted routing key.
+        Format the routing key.
 
         :param str routing_key: the routing key
         :returns: the formatted routing key
@@ -101,7 +101,7 @@ class Base:
     @functools.lru_cache(maxsize=None)
     def __getsafe__(self):
         """
-        Returns the attributes that can be used safely in consumer callbacks across all base classes and this class.
+        Return the attributes that can be used safely in consumer callbacks across all base classes and this class.
 
         :returns: the attributes that can be used safely in consumer callbacks
         :rtype: set
@@ -123,7 +123,7 @@ class Blocking:
 
     def __init__(self, *, url="amqp://127.0.0.1", blocked_connection_timeout=1800, prefetch_count=1, **kwargs):
         """
-        Connects to RabbitMQ and creates a channel.
+        Connect to RabbitMQ and create a channel.
 
         :param str url: the connection string (don't set a blocked_connection_timeout query string parameter)
         :param int blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
@@ -143,7 +143,7 @@ class Blocking:
 
     def close(self):
         """
-        Closes the connection.
+        Close the connection.
         """
         self.connection.close()
 
@@ -169,7 +169,7 @@ class Publisher:
         **kwargs
     ):
         """
-        Declares an exchange, unless using the default exchange.
+        Declare an exchange, unless using the default exchange.
 
         When publishing a message, by default, its body is encoded using :func:`yapw.util.default_encode`, and its
         content type is set to "application/json". Use the ``encode`` and ``content_type`` keyword arguments to change
@@ -193,7 +193,7 @@ class Publisher:
 
     def declare_queue(self, routing_key):
         """
-        Declares a queue named after the routing key, and binds it to the exchange with the routing key.
+        Declare a queue named after the routing key, and bind it to the exchange with the routing key.
 
         :param str routing_key: the routing key
         """
@@ -204,7 +204,7 @@ class Publisher:
 
     def publish(self, message, routing_key):
         """
-        Publishes from the main thread, with the provided message and routing key, and with the configured exchange.
+        Publish from the main thread, with the provided message and routing key, and with the configured exchange.
 
         :param message: a decoded message
         :param str routing_key: the routing key
@@ -241,8 +241,7 @@ class Threaded:
 
     def __init__(self, decode=default_decode, **kwargs):
         """
-        Installs handlers for the SIGTERM and SIGINT signals to stop consuming messages, wait for threads to terminate,
-        and close the connection.
+        Install signal handlers to stop consuming messages, wait for threads to terminate, and close the connection.
 
         When consuming a message, by default, its body is decoded using :func:`yapw.decorators.default_decode`. Use the
         ``decode`` keyword argument to change this. The ``decode`` must be a function that accepts ``(state, channel,
@@ -259,8 +258,7 @@ class Threaded:
 
     def consume(self, callback, routing_key, decorator=halt):
         """
-        Declares a queue named after and bound by the routing key, and starts consuming messages from that queue,
-        dispatching messages to the decorated callback.
+        Declare a queue named after and bound by the routing key, and start consuming messages from that queue.
 
         The consumer callback must be a function that accepts ``(state, channel, method, properties, body)`` arguments,
         all but the first of which are the same as Pika's ``basic_consume``. The ``state`` argument is needed to pass

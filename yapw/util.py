@@ -12,7 +12,7 @@ except ImportError:
 
 def json_dumps(message):
     """
-    Serializes a Python object to JSON formatted bytes.
+    Serialize a Python object to JSON formatted bytes.
 
     Uses `orjson <https://pypi.org/project/orjson/>`__ if available.
 
@@ -27,8 +27,8 @@ def json_dumps(message):
 
 def default_encode(message, content_type):
     """
-    If the content type is "application/json", serializes the decoded message to JSON formatted bytes. Otherwise,
-    returns the decoded message (which might be bytes already).
+    If the content type is "application/json", serialize the decoded message to JSON formatted bytes. Otherwise,
+    return the decoded message (which might be bytes already).
 
     :param message: a decoded message
     :param str content_type: the message's content type
@@ -42,7 +42,7 @@ def default_encode(message, content_type):
 
 def basic_publish_kwargs(state, message, routing_key):
     """
-    Prepares keyword arguments for ``basic_publish``.
+    Prepare keyword arguments for ``basic_publish``.
 
     :param state: an object with the attributes ``format_routing_key``, ``exchange``, ``encode``, ``content_type`` and
                   ``delivery_mode``
@@ -61,7 +61,7 @@ def basic_publish_kwargs(state, message, routing_key):
 
 def basic_publish_debug_args(channel, message, keywords):
     """
-    Prepares arguments for ``logger.debug`` related to publishing a message.
+    Prepare arguments for ``logger.debug`` related to publishing a message.
 
     :param channel: the channel from which to call ``basic_publish``
     :param message: a decoded message
