@@ -1,5 +1,5 @@
 import json
-from typing import Any, Callable, Tuple, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Tuple, TypedDict, Union
 
 import pika
 
@@ -8,12 +8,28 @@ try:
 
     jsonlib = orjson
 except ImportError:
-    jsonlib = json
+    jsonlib = json  # type: ignore # https://github.com/python/mypy/issues/1153
+
+if TYPE_CHECKING:
+    from yapw.clients import Publisher
 
 Encode = Callable[[Any, str], bytes]
 
 
-class PublishKeywords(TypedDict):
+class State(NamedTuple):
+    """
+    Attributes that can be used safely in consumer callbacks.
+    """
+
+    format_routing_key: Callable[[str], str]
+    connection: pika.BlockingConnection
+    exchange: str
+    encode: Encode
+    content_type: str
+    delivery_mode: int
+
+
+class PublishKeywords(TypedDict, total=False):
     """
     Keyword arguments for ``basic_publish``.
     """
@@ -56,7 +72,7 @@ def default_encode(message: Any, content_type: str) -> bytes:
     return message
 
 
-def basic_publish_kwargs(state: Tuple, message: Any, routing_key: str) -> PublishKeywords:
+def basic_publish_kwargs(state: Union["Publisher", State], message: Any, routing_key: str) -> PublishKeywords:
     """
     Prepare keyword arguments for ``basic_publish``.
 

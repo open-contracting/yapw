@@ -26,7 +26,7 @@ User-defined decorators should avoid doing work outside the ``finally`` branch. 
 import logging
 import os
 import signal
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 import pika
 
@@ -35,14 +35,14 @@ from yapw.util import jsonlib
 
 logger = logging.getLogger(__name__)
 
-Decode = Callable[[bytes, str], Any]
+Decode = Callable[[bytes, Optional[str]], Any]
 ConsumerCallback = Callable[[Tuple, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, Any], None]
 Decorator = Callable[
     [Decode, ConsumerCallback, Tuple, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, bytes], None
 ]
 
 
-def default_decode(body: bytes, content_type: str) -> Any:
+def default_decode(body: bytes, content_type: Optional[str]) -> Any:
     """
     If the content type is "application/json", deserializes the JSON formatted bytes to a Python object. Otherwise,
     returns the bytes (which the consumer callback can deserialize independently).

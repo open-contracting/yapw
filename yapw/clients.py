@@ -47,7 +47,7 @@ import logging
 import signal
 import threading
 from collections import namedtuple
-from typing import Any, List, Tuple
+from typing import Any, Callable, List, Tuple
 
 import pika
 
@@ -103,7 +103,7 @@ class Base:
         """
         return self.routing_key_template.format(routing_key=routing_key, **self.__dict__)
 
-    @property
+    @property  # type: ignore # https://github.com/python/mypy/issues/1362
     @functools.lru_cache(maxsize=None)
     def __getsafe__(self) -> set:
         """
@@ -128,7 +128,7 @@ class Blocking:
         self,
         *,
         url: str = "amqp://127.0.0.1",
-        blocked_connection_timeout: int = 1800,
+        blocked_connection_timeout=1800,  # pika-stubs uses numbers.Real https://github.com/python/mypy/issues/3186
         prefetch_count: int = 1,
         **kwargs
     ):
@@ -139,7 +139,7 @@ class Blocking:
         :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
         :param prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
         """
-        super().__init__(**kwargs)
+        super().__init__(**kwargs)  # type: ignore # https://github.com/python/mypy/issues/5887
 
         parameters = pika.URLParameters(url)
         parameters.blocked_connection_timeout = blocked_connection_timeout
@@ -163,8 +163,12 @@ class Publisher:
     An abstract parent class. Use :class:`~yapw.clients.Durable` or :class:`~yapw.clients.Transient` instead.
     """
 
-    durable = None
-    delivery_mode = None
+    durable: bool
+    delivery_mode: int
+
+    # Attributes that this mixin expects from base classes.
+    format_routing_key: Callable[["Publisher", str], str]
+    channel: pika.channel.Channel
 
     __safe__ = ["exchange", "encode", "content_type", "delivery_mode"]
 
@@ -191,7 +195,7 @@ class Publisher:
         :param content_type: the message's content type
         :param routing_key_template: see :meth:`~yapw.clients.Base.__init__`
         """
-        super().__init__(routing_key_template=routing_key_template, **kwargs)
+        super().__init__(routing_key_template=routing_key_template, **kwargs)  # type: ignore # python/mypy#5887
 
         #: The exchange name.
         self.exchange = exchange  # type: str
@@ -251,6 +255,13 @@ class Threaded:
     Runs the consumer callback in separate threads.
     """
 
+    # Attributes that this mixin expects from base classes.
+    format_routing_key: Callable[["Threaded", str], str]
+    declare_queue: Callable[["Threaded", str], None]
+    __getsafe__: set
+    connection: pika.BlockingConnection
+    channel: pika.adapters.blocking_connection.BlockingChannel
+
     def __init__(self, decode: Decode = default_decode, **kwargs):
         """
         Install signal handlers to stop consuming messages, wait for threads to terminate, and close the connection.
@@ -261,7 +272,7 @@ class Threaded:
 
         :param decode: the message body's decoder
         """
-        super().__init__(**kwargs)
+        super().__init__(**kwargs)  # type: ignore # https://github.com/python/mypy/issues/5887
 
         #: The message body's decoder.
         self.decode = decode  # type: Decode
@@ -285,10 +296,10 @@ class Threaded:
         self.declare_queue(routing_key)
 
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
-        State = namedtuple("State", self.__getsafe__)
-        state = State(**{attr: getattr(self, attr) for attr in self.__getsafe__})
+        State = namedtuple("State", self.__getsafe__)  # type: ignore # https://github.com/python/mypy/issues/848
+        state = State(**{attr: getattr(self, attr) for attr in self.__getsafe__})  # type: ignore
 
-        threads = []
+        threads = []  # type: List[threading.Thread]
         on_message_callback = functools.partial(_on_message, args=(threads, decorator, self.decode, callback, state))
         self.channel.basic_consume(formatted, on_message_callback)
 

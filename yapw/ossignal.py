@@ -1,6 +1,5 @@
 # Copied and adapted from https://github.com/scrapy/scrapy/blob/master/scrapy/utils/ossignal.py
 import signal
-from typing import Any, Callable
 
 signal_names = {}
 for signame in dir(signal):
@@ -10,7 +9,7 @@ for signame in dir(signal):
             signal_names[signum] = signame
 
 
-def install_signal_handlers(function: Callable[[int, Any], None]) -> None:
+def install_signal_handlers(function) -> None:
     """
     Installs handlers for the SIGTERM, SIGINT, SIGUSR1 and SIGUSR2 signals.
 

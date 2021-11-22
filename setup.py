@@ -26,6 +26,11 @@ setup(
             "pytest",
             "pytest-cov",
         ],
+        "types": [
+            "mypy",
+            "pika-stubs",
+            "types-orjson",
+        ],
         "docs": [
             "Sphinx",
             "sphinx-autobuild",
