@@ -1,5 +1,10 @@
 import json
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Tuple, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Tuple, Union
+
+try:
+    from typing import TypedDict
+except ImportError:
+    from typing_extensions import TypedDict  # type: ignore # https://github.com/python/mypy/issues/1153
 
 import pika
 
