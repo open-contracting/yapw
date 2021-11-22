@@ -50,7 +50,7 @@ Changed
 Added
 ~~~~~
 
--  Add :func:`yapw.methods.publish` to publish messages from the context of a consumer callback.
+-  Add :func:`yapw.methods.blocking.publish` to publish messages from the context of a consumer callback.
 
 Changed
 ~~~~~~~

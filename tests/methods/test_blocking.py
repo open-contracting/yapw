@@ -5,7 +5,7 @@ from unittest.mock import create_autospec
 import pika
 import pytest
 
-from yapw.methods import ack, nack, publish
+from yapw.methods.blocking import ack, nack, publish
 from yapw.util import default_encode
 
 Connection = namedtuple("Connection", "is_open add_callback_threadsafe")

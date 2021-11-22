@@ -288,7 +288,7 @@ class Threaded:
 
         The consumer callback must be a function that accepts ``(state, channel, method, properties, body)`` arguments,
         all but the first of which are the same as Pika's ``basic_consume``. The ``state`` argument is needed to pass
-        attributes to :mod:`yapw.methods` functions.
+        attributes to :mod:`yapw.methods.blocking` functions.
 
         :param callback: the consumer callback
         :param routing_key: the routing key

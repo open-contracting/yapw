@@ -9,7 +9,7 @@ import pytest
 
 from yapw.clients import Base, Blocking, Threaded, Transient
 from yapw.decorators import discard, requeue
-from yapw.methods import ack, nack, publish
+from yapw.methods.blocking import ack, nack, publish
 
 logger = logging.getLogger(__name__)
 

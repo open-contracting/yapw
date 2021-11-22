@@ -31,7 +31,7 @@ from typing import Any, Callable, Optional
 
 import pika
 
-from yapw.methods import nack
+from yapw.methods.blocking import nack
 from yapw.types import ConsumerCallback, Decode, State
 from yapw.util import jsonlib
 

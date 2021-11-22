@@ -46,7 +46,7 @@ Consume messages
 .. code-block:: python
 
    from yapw.decorators import discard
-   from yapw.methods import ack, nack, publish
+   from yapw.methods.blocking import ack, nack, publish
 
 
    def callback(state, channel, method, properties, body):
@@ -68,7 +68,7 @@ yapw implements a pattern whereby the consumer declares and binds a queue. The q
 Channel methods
 ~~~~~~~~~~~~~~~
 
-The :func:`~yapw.methods.ack`, :func:`~yapw.methods.nack` and  :func:`~yapw.methods.publish` methods are safe to call from the consumer callback. They log an error if the connection or channel isn't open.
+The :func:`~yapw.methods.blocking.ack`, :func:`~yapw.methods.blocking.nack` and  :func:`~yapw.methods.blocking.publish` methods are safe to call from the consumer callback. They log an error if the connection or channel isn't open.
 
 .. note::
 

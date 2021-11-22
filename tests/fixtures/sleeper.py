@@ -7,7 +7,7 @@ import logging
 import time
 
 from yapw import clients
-from yapw.methods import ack
+from yapw.methods.blocking import ack
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

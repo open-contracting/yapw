@@ -5,6 +5,6 @@ API reference
 
    clients
    decorators
-   methods
+   methods/index
    util
    types
