@@ -67,7 +67,7 @@ def json_dumps(message: Any) -> bytes:
 def default_encode(message: Any, content_type: str) -> bytes:
     """
     If the content type is "application/json", serialize the decoded message to JSON formatted bytes. Otherwise,
-    return the decoded message (which might be bytes already).
+    return the input message (which must be bytes already!).
 
     :param message: a decoded message
     :param content_type: the message's content type
