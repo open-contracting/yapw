@@ -47,12 +47,13 @@ import logging
 import signal
 import threading
 from collections import namedtuple
+from typing import Any, List, Tuple
 
 import pika
 
-from yapw.decorators import default_decode, halt
+from yapw.decorators import ConsumerCallback, Decode, Decorator, default_decode, halt
 from yapw.ossignal import install_signal_handlers, signal_names
-from yapw.util import basic_publish_debug_args, basic_publish_kwargs, default_encode
+from yapw.util import Encode, basic_publish_debug_args, basic_publish_kwargs, default_encode
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,13 @@ logger = logging.getLogger(__name__)
 logging.getLogger("pika").setLevel(logging.WARNING)
 
 
-def _on_message(channel, method, properties, body, args):
+def _on_message(
+    channel: pika.channel.Channel,
+    method: pika.spec.Basic.Deliver,
+    properties: pika.BasicProperties,
+    body: bytes,
+    args: Tuple[List[threading.Thread], Decorator, Decode, ConsumerCallback, Tuple],
+):
     (threads, decorator, decode, callback, state) = args
     thread = threading.Thread(target=decorator, args=(decode, callback, state, channel, method, properties, body))
     thread.start()
@@ -78,33 +85,29 @@ class Base:
 
     __safe__ = ["format_routing_key"]
 
-    def __init__(self, *, routing_key_template="{routing_key}", **kwargs):
+    def __init__(self, *, routing_key_template: str = "{routing_key}", **kwargs):
         """
-        :param str routing_key_template:
+        :param routing_key_template:
             a `format string <https://docs.python.org/3/library/string.html#format-string-syntax>`__ that must contain
             the ``{routing_key}`` replacement field and that may contain other fields matching writable attributes
         """
         #: The format string for the routing key.
-        self.routing_key_template = routing_key_template
+        self.routing_key_template = routing_key_template  # type: str
 
-    def format_routing_key(self, routing_key):
+    def format_routing_key(self, routing_key: str) -> str:
         """
         Format the routing key.
 
-        :param str routing_key: the routing key
+        :param routing_key: the routing key
         :returns: the formatted routing key
-        :rtype: str
         """
         return self.routing_key_template.format(routing_key=routing_key, **self.__dict__)
 
     @property
     @functools.lru_cache(maxsize=None)
-    def __getsafe__(self):
+    def __getsafe__(self) -> set:
         """
-        Return the attributes that can be used safely in consumer callbacks across all base classes and this class.
-
-        :returns: the attributes that can be used safely in consumer callbacks
-        :rtype: set
+        Attributes that can be used safely in consumer callbacks, across all base classes.
         """
         return {attr for base in type(self).__bases__ for attr in getattr(base, "__safe__", [])} | set(
             type(self).__safe__
@@ -113,21 +116,28 @@ class Base:
 
 class Blocking:
     """
-    Uses a `blocking connection <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__ while
-    avoiding deadlocks due to `blocked connections <https://www.rabbitmq.com/connection-blocked.html>`__.
+    Uses a blocking connection while avoiding deadlocks due to
+    `blocked connections <https://www.rabbitmq.com/connection-blocked.html>`__.
     """
 
     # The connection isn't "safe to use" but it can be "used safely" like in:
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
     __safe__ = ["connection"]
 
-    def __init__(self, *, url="amqp://127.0.0.1", blocked_connection_timeout=1800, prefetch_count=1, **kwargs):
+    def __init__(
+        self,
+        *,
+        url: str = "amqp://127.0.0.1",
+        blocked_connection_timeout: int = 1800,
+        prefetch_count: int = 1,
+        **kwargs
+    ):
         """
         Connect to RabbitMQ and create a channel.
 
-        :param str url: the connection string (don't set a blocked_connection_timeout query string parameter)
-        :param int blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
-        :param int prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
+        :param url: the connection string (don't set a blocked_connection_timeout query string parameter)
+        :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
+        :param prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
         """
         super().__init__(**kwargs)
 
@@ -135,13 +145,13 @@ class Blocking:
         parameters.blocked_connection_timeout = blocked_connection_timeout
 
         #: The connection.
-        self.connection = pika.BlockingConnection(parameters)
+        self.connection = pika.BlockingConnection(parameters)  # type: pika.BlockingConnection
 
         #: The channel.
-        self.channel = self.connection.channel()
+        self.channel = self.connection.channel()  # type: pika.adapters.blocking_connection.BlockingChannel
         self.channel.basic_qos(prefetch_count=prefetch_count)
 
-    def close(self):
+    def close(self) -> None:
         """
         Close the connection.
         """
@@ -161,11 +171,11 @@ class Publisher:
     def __init__(
         self,
         *,
-        exchange="",
-        exchange_type="direct",
-        encode=default_encode,
-        content_type="application/json",
-        routing_key_template="{exchange}_{routing_key}",
+        exchange: str = "",
+        exchange_type: str = "direct",
+        encode: Encode = default_encode,
+        content_type: str = "application/json",
+        routing_key_template: str = "{exchange}_{routing_key}",
         **kwargs
     ):
         """
@@ -175,39 +185,41 @@ class Publisher:
         content type is set to "application/json". Use the ``encode`` and ``content_type`` keyword arguments to change
         this. The ``encode`` must be a function that accepts ``(message, content_type)`` arguments and returns bytes.
 
-        :param str exchange: the exchange name
+        :param exchange: the exchange name
+        :param exchange_type: the exchange type
         :param encode: the message body's encoder
-        :param str content_type: the message's content type
+        :param content_type: the message's content type
+        :param routing_key_template: see :meth:`~yapw.clients.Base.__init__`
         """
         super().__init__(routing_key_template=routing_key_template, **kwargs)
 
         #: The exchange name.
-        self.exchange = exchange
+        self.exchange = exchange  # type: str
         #: The message body's encoder.
-        self.encode = encode
+        self.encode = encode  # type: Encode
         #: The message's content type.
-        self.content_type = content_type
+        self.content_type = content_type  # type: str
 
         if self.exchange:
             self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=self.durable)
 
-    def declare_queue(self, routing_key):
+    def declare_queue(self, routing_key: str) -> None:
         """
         Declare a queue named after the routing key, and bind it to the exchange with the routing key.
 
-        :param str routing_key: the routing key
+        :param routing_key: the routing key
         """
         formatted = self.format_routing_key(routing_key)
 
         self.channel.queue_declare(queue=formatted, durable=self.durable)
         self.channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=formatted)
 
-    def publish(self, message, routing_key):
+    def publish(self, message: Any, routing_key: str) -> None:
         """
         Publish from the main thread, with the provided message and routing key, and with the configured exchange.
 
         :param message: a decoded message
-        :param str routing_key: the routing key
+        :param routing_key: the routing key
         """
         keywords = basic_publish_kwargs(self, message, routing_key)
 
@@ -239,7 +251,7 @@ class Threaded:
     Runs the consumer callback in separate threads.
     """
 
-    def __init__(self, decode=default_decode, **kwargs):
+    def __init__(self, decode: Decode = default_decode, **kwargs):
         """
         Install signal handlers to stop consuming messages, wait for threads to terminate, and close the connection.
 
@@ -252,11 +264,11 @@ class Threaded:
         super().__init__(**kwargs)
 
         #: The message body's decoder.
-        self.decode = decode
+        self.decode = decode  # type: Decode
 
         install_signal_handlers(self._on_shutdown)
 
-    def consume(self, callback, routing_key, decorator=halt):
+    def consume(self, callback: ConsumerCallback, routing_key: str, decorator: Decorator = halt) -> None:
         """
         Declare a queue named after and bound by the routing key, and start consuming messages from that queue.
 
@@ -265,7 +277,7 @@ class Threaded:
         attributes to :mod:`yapw.methods` functions.
 
         :param callback: the consumer callback
-        :param str routing_key: the routing key
+        :param routing_key: the routing key
         :param decorator: the decorator of the consumer callback
         """
         formatted = self.format_routing_key(routing_key)
@@ -288,7 +300,7 @@ class Threaded:
                 thread.join()
             self.connection.close()
 
-    def _on_shutdown(self, signum, frame):
+    def _on_shutdown(self, signum: int, frame) -> None:
         install_signal_handlers(signal.SIG_IGN)
         logger.info("Received %s, shutting down gracefully", signal_names[signum])
         self.channel.stop_consuming()

@@ -96,8 +96,8 @@ You can change this behavior. For example, change the bodies of the ``encode`` a
 
 
    # Accept body as bytes.
-   class decode(state, channel, method, properties, body):
-       if properties.content_type == "application/json":
+   class decode(body, content_type):
+       if content_type == "application/json":
            return json.loads(body)
        return body
 

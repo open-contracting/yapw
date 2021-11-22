@@ -91,7 +91,7 @@ def writer(state, channel, method, properties, body):
 
 
 # Decoders
-def decode(index, state, channel, method, properties, body):
+def decode(index, body, content_type):
     return body.decode()[index]
 
 

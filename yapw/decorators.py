@@ -26,30 +26,50 @@ User-defined decorators should avoid doing work outside the ``finally`` branch. 
 import logging
 import os
 import signal
+from typing import Any, Callable, Tuple
+
+import pika
 
 from yapw.methods import nack
 from yapw.util import jsonlib
 
 logger = logging.getLogger(__name__)
 
+Decode = Callable[[bytes, str], Any]
+ConsumerCallback = Callable[[Tuple, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, Any], None]
+Decorator = Callable[
+    [Decode, ConsumerCallback, Tuple, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, bytes], None
+]
 
-def default_decode(state, channel, method, properties, body):
+
+def default_decode(body: bytes, content_type: str) -> Any:
     """
     If the content type is "application/json", deserializes the JSON formatted bytes to a Python object. Otherwise,
     returns the bytes (which the consumer callback can deserialize independently).
 
     Uses `orjson <https://pypi.org/project/orjson/>`__ if available.
 
+    :param body: the encoded message
+    :param content_type: the message's content type
     :returns: a Python object
     """
-    if properties.content_type == "application/json":
+    if content_type == "application/json":
         return jsonlib.loads(body)
     return body
 
 
-def _decorate(decode, callback, state, channel, method, properties, body, errback):
+def _decorate(
+    decode: Decode,
+    callback: ConsumerCallback,
+    state: Tuple,
+    channel: pika.channel.Channel,
+    method: pika.spec.Basic.Deliver,
+    properties: pika.BasicProperties,
+    body: bytes,
+    errback,
+) -> None:
     try:
-        message = decode(state, channel, method, properties, body)
+        message = decode(body, properties.content_type)
         try:
             callback(state, channel, method, properties, message)
         except Exception:
@@ -60,7 +80,15 @@ def _decorate(decode, callback, state, channel, method, properties, body, errbac
 
 
 # https://stackoverflow.com/a/7099229/244258
-def halt(decode, callback, state, channel, method, properties, body):
+def halt(
+    decode: Decode,
+    callback: ConsumerCallback,
+    state: Tuple,
+    channel: pika.channel.Channel,
+    method: pika.spec.Basic.Deliver,
+    properties: pika.BasicProperties,
+    body: bytes,
+) -> None:
     """
     If the callback raises an exception, send the SIGUSR1 signal to the main thread, without acknowledgment.
     """
@@ -72,7 +100,15 @@ def halt(decode, callback, state, channel, method, properties, body):
     _decorate(decode, callback, state, channel, method, properties, body, errback)
 
 
-def discard(decode, callback, state, channel, method, properties, body):
+def discard(
+    decode: Decode,
+    callback: ConsumerCallback,
+    state: Tuple,
+    channel: pika.channel.Channel,
+    method: pika.spec.Basic.Deliver,
+    properties: pika.BasicProperties,
+    body: bytes,
+) -> None:
     """
     If the callback raises an exception, nack's the message without requeueing.
     """
@@ -84,7 +120,15 @@ def discard(decode, callback, state, channel, method, properties, body):
     _decorate(decode, callback, state, channel, method, properties, body, errback)
 
 
-def requeue(decode, callback, state, channel, method, properties, body):
+def requeue(
+    decode: Decode,
+    callback: ConsumerCallback,
+    state: Tuple,
+    channel: pika.channel.Channel,
+    method: pika.spec.Basic.Deliver,
+    properties: pika.BasicProperties,
+    body: bytes,
+) -> None:
     """
     If the callback raises an exception, nack's the message, and requeues the message unless it was redelivered.
     """
