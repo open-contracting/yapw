@@ -26,19 +26,19 @@ User-defined decorators should avoid doing work outside the ``finally`` branch. 
 import logging
 import os
 import signal
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional
 
 import pika
 
 from yapw.methods import nack
-from yapw.util import jsonlib
+from yapw.util import State, jsonlib
 
 logger = logging.getLogger(__name__)
 
 Decode = Callable[[bytes, Optional[str]], Any]
-ConsumerCallback = Callable[[Tuple, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, Any], None]
+ConsumerCallback = Callable[[State, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, Any], None]
 Decorator = Callable[
-    [Decode, ConsumerCallback, Tuple, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, bytes], None
+    [Decode, ConsumerCallback, State, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, bytes], None
 ]
 
 
@@ -61,12 +61,12 @@ def default_decode(body: bytes, content_type: Optional[str]) -> Any:
 def _decorate(
     decode: Decode,
     callback: ConsumerCallback,
-    state: Tuple,
+    state: State,
     channel: pika.channel.Channel,
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
-    errback,
+    errback: Callable[[], None],
 ) -> None:
     try:
         message = decode(body, properties.content_type)
@@ -83,7 +83,7 @@ def _decorate(
 def halt(
     decode: Decode,
     callback: ConsumerCallback,
-    state: Tuple,
+    state: State,
     channel: pika.channel.Channel,
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
@@ -93,7 +93,7 @@ def halt(
     If the callback raises an exception, send the SIGUSR1 signal to the main thread, without acknowledgment.
     """
 
-    def errback():
+    def errback() -> None:
         logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
         os.kill(os.getpid(), signal.SIGUSR1)
 
@@ -103,7 +103,7 @@ def halt(
 def discard(
     decode: Decode,
     callback: ConsumerCallback,
-    state: Tuple,
+    state: State,
     channel: pika.channel.Channel,
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
@@ -113,7 +113,7 @@ def discard(
     If the callback raises an exception, nack's the message without requeueing.
     """
 
-    def errback():
+    def errback() -> None:
         logger.exception("Unhandled exception when consuming %r, discarding message", body)
         nack(state, channel, method.delivery_tag, requeue=False)
 
@@ -123,7 +123,7 @@ def discard(
 def requeue(
     decode: Decode,
     callback: ConsumerCallback,
-    state: Tuple,
+    state: State,
     channel: pika.channel.Channel,
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
@@ -133,7 +133,7 @@ def requeue(
     If the callback raises an exception, nack's the message, and requeues the message unless it was redelivered.
     """
 
-    def errback():
+    def errback() -> None:
         requeue = not method.redelivered
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
         nack(state, channel, method.delivery_tag, requeue=requeue)

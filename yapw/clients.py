@@ -47,13 +47,14 @@ import logging
 import signal
 import threading
 from collections import namedtuple
-from typing import Any, Callable, List, Tuple
+from types import FrameType
+from typing import Any, Callable, List, Set, Tuple
 
 import pika
 
 from yapw.decorators import ConsumerCallback, Decode, Decorator, default_decode, halt
 from yapw.ossignal import install_signal_handlers, signal_names
-from yapw.util import Encode, basic_publish_debug_args, basic_publish_kwargs, default_encode
+from yapw.util import Encode, State, basic_publish_debug_args, basic_publish_kwargs, default_encode
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +67,8 @@ def _on_message(
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
-    args: Tuple[List[threading.Thread], Decorator, Decode, ConsumerCallback, Tuple],
-):
+    args: Tuple[List[threading.Thread], Decorator, Decode, ConsumerCallback, State],
+) -> None:
     (threads, decorator, decode, callback, state) = args
     thread = threading.Thread(target=decorator, args=(decode, callback, state, channel, method, properties, body))
     thread.start()
@@ -105,7 +106,7 @@ class Base:
 
     @property  # type: ignore # https://github.com/python/mypy/issues/1362
     @functools.lru_cache(maxsize=None)
-    def __getsafe__(self) -> set:
+    def __getsafe__(self) -> Set[str]:
         """
         Attributes that can be used safely in consumer callbacks, across all base classes.
         """
@@ -258,7 +259,7 @@ class Threaded:
     # Attributes that this mixin expects from base classes.
     format_routing_key: Callable[["Threaded", str], str]
     declare_queue: Callable[["Threaded", str], None]
-    __getsafe__: set
+    __getsafe__: Set[str]
     connection: pika.BlockingConnection
     channel: pika.adapters.blocking_connection.BlockingChannel
 
@@ -296,8 +297,8 @@ class Threaded:
         self.declare_queue(routing_key)
 
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
-        State = namedtuple("State", self.__getsafe__)  # type: ignore # https://github.com/python/mypy/issues/848
-        state = State(**{attr: getattr(self, attr) for attr in self.__getsafe__})  # type: ignore
+        klass = namedtuple("State", self.__getsafe__)  # type: ignore # https://github.com/python/mypy/issues/848
+        state = klass(**{attr: getattr(self, attr) for attr in self.__getsafe__})  # type: ignore
 
         threads = []  # type: List[threading.Thread]
         on_message_callback = functools.partial(_on_message, args=(threads, decorator, self.decode, callback, state))
@@ -311,7 +312,7 @@ class Threaded:
                 thread.join()
             self.connection.close()
 
-    def _on_shutdown(self, signum: int, frame) -> None:
+    def _on_shutdown(self, signum: int, frame: FrameType) -> None:
         install_signal_handlers(signal.SIG_IGN)
         logger.info("Received %s, shutting down gracefully", signal_names[signum])
         self.channel.stop_consuming()

@@ -4,7 +4,7 @@ Functions for calling channel methods from the context of a consumer callback.
 
 import functools
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import pika
 
@@ -29,7 +29,7 @@ def publish(state: State, channel: pika.channel.Channel, message: Any, routing_k
     logger.debug(*basic_publish_debug_args(channel, message, keywords))
 
 
-def ack(state: State, channel: pika.channel.Channel, delivery_tag: int = 0, **kwargs) -> None:
+def ack(state: State, channel: pika.channel.Channel, delivery_tag: Optional[int] = 0, **kwargs) -> None:
     """
     Ack a message by its delivery tag.
 
@@ -41,7 +41,7 @@ def ack(state: State, channel: pika.channel.Channel, delivery_tag: int = 0, **kw
     logger.debug("Ack'd message on channel %s with delivery tag %s", channel.channel_number, delivery_tag)
 
 
-def nack(state: State, channel: pika.channel.Channel, delivery_tag: int = 0, **kwargs) -> None:
+def nack(state: State, channel: pika.channel.Channel, delivery_tag: Optional[int] = 0, **kwargs) -> None:
     """
     Nack a message by its delivery tag.
 
