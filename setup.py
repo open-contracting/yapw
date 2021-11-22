@@ -16,6 +16,7 @@ setup(
     long_description_content_type="text/x-rst",
     install_requires=[
         "pika",
+        "typing-extensions;python_version<'3.8'",
     ],
     extras_require={
         "perf": [
