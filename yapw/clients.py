@@ -88,7 +88,7 @@ class Base:
 
     __safe__ = ["format_routing_key"]
 
-    def __init__(self, *, routing_key_template: str = "{routing_key}", **kwargs):
+    def __init__(self, *, routing_key_template: str = "{routing_key}", **kwargs: Any):
         """
         :param routing_key_template:
             a `format string <https://docs.python.org/3/library/string.html#format-string-syntax>`__ that must contain
@@ -131,9 +131,9 @@ class Blocking:
         self,
         *,
         url: str = "amqp://127.0.0.1",
-        blocked_connection_timeout=1800,  # pika-stubs uses numbers.Real https://github.com/python/mypy/issues/3186
+        blocked_connection_timeout: float = 1800,
         prefetch_count: int = 1,
-        **kwargs
+        **kwargs: Any
     ):
         """
         Connect to RabbitMQ and create a channel.
@@ -145,7 +145,7 @@ class Blocking:
         super().__init__(**kwargs)  # type: ignore # https://github.com/python/mypy/issues/5887
 
         parameters = pika.URLParameters(url)
-        parameters.blocked_connection_timeout = blocked_connection_timeout
+        parameters.blocked_connection_timeout = blocked_connection_timeout  # type: ignore # python/mypy#3186
 
         #: The connection.
         self.connection = pika.BlockingConnection(parameters)  # type: pika.BlockingConnection
@@ -183,7 +183,7 @@ class Publisher:
         encode: Encode = default_encode,
         content_type: str = "application/json",
         routing_key_template: str = "{exchange}_{routing_key}",
-        **kwargs
+        **kwargs: Any
     ):
         """
         Declare an exchange, unless using the default exchange.
@@ -265,7 +265,7 @@ class Threaded:
     connection: pika.BlockingConnection
     channel: pika.adapters.blocking_connection.BlockingChannel
 
-    def __init__(self, decode: Decode = default_decode, **kwargs):
+    def __init__(self, decode: Decode = default_decode, **kwargs: Any):
         """
         Install signal handlers to stop consuming messages, wait for threads to terminate, and close the connection.
 

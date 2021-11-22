@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import sys
 from typing import Any, Callable, NamedTuple, Optional
 
 import pika
 
-try:
+if sys.version_info < (3, 8):
+    from typing_extensions import TypedDict  # https://github.com/python/mypy/issues/1153
+else:
     from typing import TypedDict
-except ImportError:
-    from typing_extensions import TypedDict  # type: ignore # https://github.com/python/mypy/issues/1153
 
 
 #:

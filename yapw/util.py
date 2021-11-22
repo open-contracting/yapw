@@ -33,7 +33,7 @@ def json_dumps(message: Any) -> bytes:
 def default_encode(message: Any, content_type: str) -> bytes:
     """
     If the content type is "application/json", serialize the decoded message to JSON formatted bytes. Otherwise,
-    return the input message.
+    return the input message. Pika, by default, encodes ``str`` to ``bytes``.
 
     .. attention::
 
