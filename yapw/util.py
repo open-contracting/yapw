@@ -1,10 +1,5 @@
 import json
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Tuple, Union
-
-try:
-    from typing import TypedDict
-except ImportError:
-    from typing_extensions import TypedDict  # type: ignore # https://github.com/python/mypy/issues/1153
+from typing import TYPE_CHECKING, Any, Tuple, Union
 
 import pika
 
@@ -15,44 +10,10 @@ try:
 except ImportError:
     jsonlib = json  # type: ignore # https://github.com/python/mypy/issues/1153
 
+from yapw.types import PublishKeywords, State
+
 if TYPE_CHECKING:
     from yapw.clients import Publisher
-
-Encode = Callable[[Any, str], bytes]
-
-
-class State(NamedTuple):
-    """
-    Attributes that can be used safely in consumer callbacks.
-    """
-
-    #: A function to format the routing key.
-    format_routing_key: Callable[[str], str]
-    #: The connection.
-    connection: pika.BlockingConnection
-    #: The exchange name.
-    exchange: str
-    #: The message body's encoder.
-    encode: Encode
-    #: The message's content type.
-    content_type: str
-    #: The message's delivery mode.
-    delivery_mode: int
-
-
-class PublishKeywords(TypedDict, total=False):
-    """
-    Keyword arguments for ``basic_publish``.
-    """
-
-    #: The exchange to publish to.
-    exchange: str
-    #: The message's routing key.
-    routing_key: str
-    #: The message's body.
-    body: bytes
-    #: The message's content type and delivery mode.
-    properties: pika.BasicProperties
 
 
 def json_dumps(message: Any) -> bytes:
@@ -72,7 +33,12 @@ def json_dumps(message: Any) -> bytes:
 def default_encode(message: Any, content_type: str) -> bytes:
     """
     If the content type is "application/json", serialize the decoded message to JSON formatted bytes. Otherwise,
-    return the input message (which must be bytes already!).
+    return the input message.
+
+    .. attention::
+
+       If the content type is not "application/json", you are responsible for either calling ``publish`` with an
+       encoded message, or overriding the ``encode`` :class:`keyword argument<yapw.clients.Publisher>`.
 
     :param message: a decoded message
     :param content_type: the message's content type

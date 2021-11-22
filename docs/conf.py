@@ -72,7 +72,12 @@ autodoc_default_options = {
     "member-order": "bysource",
 }
 autodoc_typehints = "description"
-autodoc_typehints_description_target = "documented"
+autodoc_type_aliases = {
+    "ConsumerCallback": "yapw.types.ConsumerCallback",
+    "Decode": "yapw.types.Decode",
+    "Decorator": "yapw.types.Decorator",
+    "Encode": "yapw.types.Encode",
+}
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

@@ -22,6 +22,7 @@ Decorators look like this:
 
 User-defined decorators should avoid doing work outside the ``finally`` branch. Do work in the callback.
 """
+from __future__ import annotations
 
 import logging
 import os
@@ -31,15 +32,10 @@ from typing import Any, Callable, Optional
 import pika
 
 from yapw.methods import nack
-from yapw.util import State, jsonlib
+from yapw.types import ConsumerCallback, Decode, State
+from yapw.util import jsonlib
 
 logger = logging.getLogger(__name__)
-
-Decode = Callable[[bytes, Optional[str]], Any]
-ConsumerCallback = Callable[[State, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, Any], None]
-Decorator = Callable[
-    [Decode, ConsumerCallback, State, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, bytes], None
-]
 
 
 def default_decode(body: bytes, content_type: Optional[str]) -> Any:

@@ -41,6 +41,7 @@ Consumer
    Importing this module sets the level of the "pika" logger to ``WARNING``, so that consumers can use the ``DEBUG``
    and ``INFO`` levels without their messages getting lost in Pika's verbosity.
 """
+from __future__ import annotations
 
 import functools
 import logging
@@ -52,9 +53,10 @@ from typing import Any, Callable, List, Set, Tuple
 
 import pika
 
-from yapw.decorators import ConsumerCallback, Decode, Decorator, default_decode, halt
+from yapw.decorators import default_decode, halt
 from yapw.ossignal import install_signal_handlers, signal_names
-from yapw.util import Encode, State, basic_publish_debug_args, basic_publish_kwargs, default_encode
+from yapw.types import ConsumerCallback, Decode, Decorator, Encode, State
+from yapw.util import basic_publish_debug_args, basic_publish_kwargs, default_encode
 
 logger = logging.getLogger(__name__)
 

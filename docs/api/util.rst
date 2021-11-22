@@ -1,4 +1,4 @@
 Utilities
-==========
+=========
 
 .. automodule:: yapw.util

@@ -103,6 +103,11 @@ You can change this behavior. For example, change the bodies of the ``encode`` a
 
 
    client = Client(encode=encode, decode=decode)
+   publisher.publish({"message": "value"}, routing_key="messages")
+
+.. attention::
+
+   If you change the content type from "application/json", you are responsible for either calling ``publish`` with an encoded message, or using a custom encoder as above.
 
 Error handling
 ~~~~~~~~~~~~~~

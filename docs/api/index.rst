@@ -7,3 +7,4 @@ API reference
    decorators
    methods
    util
+   types
