@@ -21,11 +21,17 @@ class State(NamedTuple):
     Attributes that can be used safely in consumer callbacks.
     """
 
+    #: A function to format the routing key.
     format_routing_key: Callable[[str], str]
+    #: The connection.
     connection: pika.BlockingConnection
+    #: The exchange name.
     exchange: str
+    #: The message body's encoder.
     encode: Encode
+    #: The message's content type.
     content_type: str
+    #: The message's delivery mode.
     delivery_mode: int
 
 
