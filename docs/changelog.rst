@@ -16,6 +16,7 @@ Changed
 -  Add ``decode`` as first argument to :mod:`yapw.decorators` functions.
 -  :class:`yapw.clients.Publisher`: Rename ``encoder`` keyword argument to ``encode``.
 -  :class:`yapw.clients.Publisher`'s ``encode`` keyword argument defaults to :func:`yapw.util.default_encode`.
+-  :func:`yapw.util.default_encode` encodes ``str`` to ``bytes`` and pickles non-``str`` to ``bytes``.
 
 0.0.4 (2021-11-19)
 ------------------

@@ -1,4 +1,5 @@
 import json
+import pickle
 from typing import TYPE_CHECKING, Any, Tuple, Union
 
 import pika
@@ -32,13 +33,12 @@ def json_dumps(message: Any) -> bytes:
 
 def default_encode(message: Any, content_type: str) -> bytes:
     """
-    If the content type is "application/json", serialize the decoded message to JSON formatted bytes. Otherwise,
-    return the input message. Pika, by default, encodes ``str`` to ``bytes``.
+    Encode the decoded message to bytes.
 
-    .. attention::
-
-       If the content type is not "application/json", you are responsible for either calling ``publish`` with an
-       encoded message, or overriding the ``encode`` :class:`keyword argument<yapw.clients.Publisher>`.
+    -  If the content type is "application/json", serialize the message to JSON formatted bytes.
+    -  If the message is a string, encode it to bytes.
+    -  If the message is bytes, return it.
+    -  Otherwise, serialize the message to its picked representation.
 
     :param message: a decoded message
     :param content_type: the message's content type
@@ -46,7 +46,11 @@ def default_encode(message: Any, content_type: str) -> bytes:
     """
     if content_type == "application/json":
         return json_dumps(message)
-    return message
+    if isinstance(message, str):
+        return message.encode()
+    if isinstance(message, bytes):
+        return message
+    return pickle.dumps(message)
 
 
 def basic_publish_kwargs(state: Union["Publisher", State], message: Any, routing_key: str) -> PublishKeywords:

@@ -16,4 +16,4 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
       - run: pip install .[types]
-      - run: mypy yapw
+      - run: mypy --strict --show-error-codes yapw
