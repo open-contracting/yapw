@@ -28,7 +28,7 @@ Each mixing contributes features, such that a client will:
 
 -  :class:`~yapw.clients.Blocking`: Use `pika.BlockingConnection <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__, while avoiding deadlocks by setting ``blocked_connection_timeout`` to a sensible default.
 -  :class:`~yapw.clients.Durable`: Declare a durable exchange, use persistent messages on :meth:`~yapw.clients.Durable.publish`, and create a durable queue on :meth:`~yapw.clients.Threaded.consume`.
--  :class:`~yapw.clients.Threaded`: Run the consumer callback in separate threads when consuming messages. Install handlers for the SIGTERM and SIGINT signals to stop consuming messages, wait for threads to terminate, and close the connection.
+-  :class:`~yapw.clients.Threaded`: Run the consumer callback in separate threads when consuming messages. Install handlers for the SIGTERM, SIGINT and user-defined signals to stop consuming messages, wait for threads to terminate, and close the connection.
 
 Publish messages outside a consumer callback
 --------------------------------------------
@@ -68,11 +68,11 @@ yapw implements a pattern whereby the consumer declares and binds a queue. The q
 Channel methods
 ~~~~~~~~~~~~~~~
 
-The :func:`~yapw.methods.blocking.ack`, :func:`~yapw.methods.blocking.nack` and  :func:`~yapw.methods.blocking.publish` methods are safe to call from the consumer callback. They log an error if the connection or channel isn't open.
+The :func:`~yapw.methods.blocking.ack`, :func:`~yapw.methods.blocking.nack` and  :func:`~yapw.methods.blocking.publish` functions are safe to call from the consumer callback. They log an error if the connection or channel isn't open.
 
 .. note::
 
-   Thread-safe helper methods (using `add_callback_threadsafe() <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html#pika.adapters.blocking_connection.BlockingConnection.add_callback_threadsafe>`__) have not yet been defined for all relevant `channel methods <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html#pika.adapters.blocking_connection.BlockingChannel>`__.
+   Thread-safe helper functions (using `add_callback_threadsafe() <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html#pika.adapters.blocking_connection.BlockingConnection.add_callback_threadsafe>`__) have not yet been defined for all relevant `channel methods <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html#pika.adapters.blocking_connection.BlockingChannel>`__.
 
 Encoding and decoding
 ~~~~~~~~~~~~~~~~~~~~~
@@ -115,15 +115,13 @@ The ``decorator`` keyword argument to the :meth:`~yapw.clients.Threaded.consume`
 
 When using `consumer prefetch <https://www.rabbitmq.com/consumer-prefetch.html>`__, if a message is not ack'd or nack'd, then `RabbitMQ stops delivering messages <https://www.rabbitmq.com/confirms.html#channel-qos-prefetch>`__. As such, it's important to handle unexpected errors by either acknowledging the message or halting the process. Otherwise, the process will stall.
 
-The default decorator is the :func:`yapw.decorators.halt` function, which sends the SIGUSR1 signal to the main thread, without acknowledging the message. See the :doc:`available decorators<api/decorators>` and the rationale for the default setting.
+The default decorator is the :func:`yapw.decorators.halt` function, which sends the SIGUSR1 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Threaded` mixin handles this signal by shutting down gracefully. See the :doc:`available decorators<api/decorators>` and the rationale for the default setting.
 
-All decorators also decode the message body, which can be configured as above. If an exception occurs while decoding, the decorator sends the SIGUSR2 signal to the main thread, without acknowledging the message. In such cases, it's likely that encoding or decoding is misconfigured by the user.
-
-The :class:`~yapw.clients.Threaded` mixin handles both signals by shutting down gracefully.
+All decorators also decode the message body, which can be configured as above. If an exception occurs while decoding, the decorator sends the SIGUSR2 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Threaded` mixin handles this signal by shutting down gracefully.
 
 Signal handling
 ~~~~~~~~~~~~~~~
 
-The :class:`~yapw.clients.Threaded` mixin shuts down gracefully if it receives the ``SIGTERM`` (system exit) or ``SIGINT`` (keyboard interrupt) signals. It stops consuming messages, waits for threads to terminate, and closes the RabbitMQ connection.
+The :class:`~yapw.clients.Threaded` mixin shuts down gracefully if it receives the ``SIGTERM`` (system exit), ``SIGINT`` (keyboard interrupt) or user-defined signals described above. It stops consuming messages, waits for threads to terminate, and closes the RabbitMQ connection.
 
 Copyright (c) 2021 Open Contracting Partnership, released under the BSD license
