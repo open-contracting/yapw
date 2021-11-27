@@ -226,9 +226,10 @@ def test_publish(message, caplog):
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 4
+    assert len(caplog.records) == 5
     assert [(r.levelname, r.message) for r in caplog.records] == [
         ("DEBUG", "Consuming messages on channel 1 from queue yapw_test_q"),
+        ("DEBUG", f"Received message {encode(message)} with routing key 'yapw_test_q'"),
         (
             "DEBUG",
             "Published message {'message': 'value'} on channel 1 to exchange yapw_test with routing key yapw_test_r",

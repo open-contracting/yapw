@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.0.6 (Unreleased)
+------------------
+
+Changed
+~~~~~~~
+
+-  Log a debug message when consuming each message.
+
 0.0.5 (2021-11-22)
 ------------------
 
