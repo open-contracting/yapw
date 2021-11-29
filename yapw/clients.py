@@ -261,7 +261,6 @@ class Threaded:
     # Attributes that this mixin expects from base classes.
     format_routing_key: Callable[["Threaded", str], str]
     declare_queue: Callable[["Threaded", str], None]
-    __getsafe__: Set[str]
     connection: pika.BlockingConnection
     channel: pika.adapters.blocking_connection.BlockingChannel
 

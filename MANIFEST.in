@@ -4,5 +4,6 @@ recursive-include docs *.rst
 recursive-include docs *.txt
 recursive-include docs Makefile
 recursive-include tests *.py
+recursive-include yapw *.typed
 exclude .pre-commit-config.yaml
 exclude .readthedocs.yaml
