@@ -45,7 +45,10 @@ def test_decode_json(nack, caplog):
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "DEBUG"
-    assert caplog.records[-1].message == "Received message b'{\"message\": \"value\"}' with routing key 'key'"
+    assert (
+        caplog.records[-1].message
+        == 'Received message b\'{"message": "value"}\' with routing key key and delivery tag 1'
+    )
 
 
 @patch("yapw.decorators.nack")
@@ -63,7 +66,7 @@ def test_decode_bytes(nack, caplog):
 
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "DEBUG"
-    assert caplog.records[-1].message == "Received message b'message value' with routing key 'key'"
+    assert caplog.records[-1].message == "Received message b'message value' with routing key key and delivery tag 1"
 
 
 def test_decode_invalid(caplog):
@@ -82,7 +85,7 @@ def test_decode_invalid(caplog):
 
     assert len(caplog.records) == 2
     assert caplog.records[0].levelname == "DEBUG"
-    assert caplog.records[0].message == "Received message b'invalid' with routing key 'key'"
+    assert caplog.records[0].message == "Received message b'invalid' with routing key key and delivery tag 1"
     assert caplog.records[-1].levelname == "ERROR"
     assert caplog.records[-1].message == "b'invalid' can't be decoded, sending SIGUSR2"
     assert caplog.records[-1].exc_info
@@ -101,7 +104,7 @@ def test_discard(nack, caplog):
 
     assert len(caplog.records) == 2
     assert caplog.records[0].levelname == "DEBUG"
-    assert caplog.records[0].message == "Received message b'\"body\"' with routing key 'key'"
+    assert caplog.records[0].message == "Received message b'\"body\"' with routing key key and delivery tag 1"
     assert caplog.records[-1].levelname == "ERROR"
     assert caplog.records[-1].message == "Unhandled exception when consuming b'\"body\"', discarding message"
     assert caplog.records[-1].exc_info
@@ -121,7 +124,7 @@ def test_requeue(nack, redelivered, requeue_kwarg, caplog):
 
     assert len(caplog.records) == 2
     assert caplog.records[0].levelname == "DEBUG"
-    assert caplog.records[0].message == "Received message b'\"body\"' with routing key 'key'"
+    assert caplog.records[0].message == "Received message b'\"body\"' with routing key key and delivery tag 1"
     assert caplog.records[-1].levelname == "ERROR"
     assert caplog.records[-1].message == f"Unhandled exception when consuming b'\"body\"' (requeue={requeue_kwarg})"
     assert caplog.records[-1].exc_info

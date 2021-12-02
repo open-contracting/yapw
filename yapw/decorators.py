@@ -64,7 +64,9 @@ def _decorate(
     body: bytes,
     errback: Callable[[], None],
 ) -> None:
-    logger.debug("Received message %s with routing key '%s'", body, method.routing_key)
+    logger.debug(
+        "Received message %s with routing key %s and delivery tag %s", body, method.routing_key, method.delivery_tag
+    )
     try:
         message = decode(body, properties.content_type)
         try:
