@@ -1,2 +1,1 @@
 furo
-sphinx<5
