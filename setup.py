@@ -33,9 +33,9 @@ setup(
             "types-orjson",
         ],
         "docs": [
-            "Sphinx",
+            "furo",
+            "sphinx",
             "sphinx-autobuild",
-            "sphinx-rtd-theme",
         ],
     },
     classifiers=[
