@@ -7,7 +7,7 @@ Yet Another Pika Wrapper (yapw – pronounced yapu) makes it easier to create a 
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/yapw.svg
    :target: https://pypi.org/project/yapw/
 .. |Build Status| image:: https://github.com/open-contracting/yapw/workflows/CI/badge.svg
-   :target: https://github.com/open-contracting/yapw/actions
+   :target: https://github.com/open-contracting/yapw/actions?query=workflow%3ACI
 .. |Coverage Status| image:: https://coveralls.io/repos/github/open-contracting/yapw/badge.svg?branch=main
    :target: https://coveralls.io/github/open-contracting/yapw?branch=main
 .. |Python Version| image:: https://img.shields.io/pypi/pyversions/yapw.svg
