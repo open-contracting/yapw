@@ -1,7 +1,7 @@
 # Copied and adapted from https://github.com/scrapy/scrapy/blob/master/scrapy/utils/ossignal.py
 import signal
 from types import FrameType
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 signal_names = {}
 for signame in dir(signal):
@@ -11,7 +11,7 @@ for signame in dir(signal):
             signal_names[signum] = signame
 
 
-def install_signal_handlers(function: Union[Callable[[int, FrameType], None], signal.Handlers]) -> None:
+def install_signal_handlers(function: Union[Callable[[int, Optional[FrameType]], None], signal.Handlers]) -> None:
     """
     Installs handlers for the SIGTERM, SIGINT, SIGUSR1 and SIGUSR2 signals.
 

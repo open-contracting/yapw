@@ -49,7 +49,7 @@ import signal
 import threading
 from collections import namedtuple
 from types import FrameType
-from typing import Any, Callable, List, Set, Tuple
+from typing import Any, Callable, List, Optional, Set, Tuple
 
 import pika
 
@@ -142,7 +142,7 @@ class Blocking:
         :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
         :param prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
         """
-        super().__init__(**kwargs)  # type: ignore # https://github.com/python/mypy/issues/5887
+        super().__init__(**kwargs)
 
         parameters = pika.URLParameters(url)
         parameters.blocked_connection_timeout = blocked_connection_timeout  # type: ignore # python/mypy#3186
@@ -274,7 +274,7 @@ class Threaded:
 
         :param decode: the message body's decoder
         """
-        super().__init__(**kwargs)  # type: ignore # https://github.com/python/mypy/issues/5887
+        super().__init__(**kwargs)
 
         #: The message body's decoder.
         self.decode = decode  # type: Decode
@@ -313,7 +313,7 @@ class Threaded:
                 thread.join()
             self.connection.close()
 
-    def _on_shutdown(self, signum: int, frame: FrameType) -> None:
+    def _on_shutdown(self, signum: int, frame: Optional[FrameType]) -> None:
         install_signal_handlers(signal.SIG_IGN)
         logger.info("Received %s, shutting down gracefully", signal_names[signum])
         self.channel.stop_consuming()
