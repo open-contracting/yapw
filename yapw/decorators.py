@@ -10,15 +10,18 @@ and the database is down, but this exception isn't handled by the callback, then
 or :func:`~yapw.decorators.requeue` decorators would end up nack'ing all messages in the queue. The ``halt`` decorator
 instead stops the consumer, so that an administrator can decide when it is appropriate to restart it.
 
-Decorators look like this:
+Decorators look like this (see :func:`~yapw.decorators.decorate` for context):
 
 .. code-block:: python
 
-   def decorate(decode, callback, state, channel, method, properties, body):
-    def errback():
-        # do something
+   from yapw.decorators import decorate
 
-    _decorate(decode, callback, state, channel, method, properties, body, errback)
+
+   def myfunction(decode, callback, state, channel, method, properties, body):
+    def errback():
+        # do something, like halting the process or nack'ing the message
+
+    decorate(decode, callback, state, channel, method, properties, body, errback)
 
 User-defined decorators should avoid doing work outside the ``finally`` branch. Do work in the callback.
 """
@@ -54,7 +57,7 @@ def default_decode(body: bytes, content_type: Optional[str]) -> Any:
     return body
 
 
-def _decorate(
+def decorate(
     decode: Decode,
     callback: ConsumerCallback,
     state: State,
@@ -64,6 +67,17 @@ def _decorate(
     body: bytes,
     errback: Callable[[], None],
 ) -> None:
+    """
+    Decode the message ``body`` using the ``decode`` function, and call the consumer ``callback``.
+
+    If the ``callback`` function raises an exception, call the ``errback`` function.
+
+    If the ``decode`` function raises an exception, send the SIGUSR2 signal to the main thread.
+
+    .. seealso::
+
+       :meth:`yapw.clients.Threaded.consume` for details on the consumer callback function signature.
+    """
     logger.debug(
         "Received message %s with routing key %s and delivery tag %s", body, method.routing_key, method.delivery_tag
     )
@@ -96,7 +110,7 @@ def halt(
         logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
         os.kill(os.getpid(), signal.SIGUSR1)
 
-    _decorate(decode, callback, state, channel, method, properties, body, errback)
+    decorate(decode, callback, state, channel, method, properties, body, errback)
 
 
 def discard(
@@ -109,14 +123,14 @@ def discard(
     body: bytes,
 ) -> None:
     """
-    If the callback raises an exception, nack's the message without requeueing.
+    If the callback raises an exception, nack the message without requeueing.
     """
 
     def errback() -> None:
         logger.exception("Unhandled exception when consuming %r, discarding message", body)
         nack(state, channel, method.delivery_tag, requeue=False)
 
-    _decorate(decode, callback, state, channel, method, properties, body, errback)
+    decorate(decode, callback, state, channel, method, properties, body, errback)
 
 
 def requeue(
@@ -129,7 +143,7 @@ def requeue(
     body: bytes,
 ) -> None:
     """
-    If the callback raises an exception, nack's the message, and requeues the message unless it was redelivered.
+    If the callback raises an exception, nack the message, and requeue the message unless it was redelivered.
     """
 
     def errback() -> None:
@@ -137,4 +151,4 @@ def requeue(
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
         nack(state, channel, method.delivery_tag, requeue=requeue)
 
-    _decorate(decode, callback, state, channel, method, properties, body, errback)
+    decorate(decode, callback, state, channel, method, properties, body, errback)

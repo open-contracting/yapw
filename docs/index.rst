@@ -65,6 +65,10 @@ Consume messages
 
 yapw implements a pattern whereby the consumer declares and binds a queue. The queue's name and binding key are the same, and are namespaced by the exchange name.
 
+.. seealso::
+
+   :meth:`yapw.clients.Threaded.consume` for details on the consumer callback function signature.
+
 Channel methods
 ~~~~~~~~~~~~~~~
 
