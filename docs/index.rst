@@ -63,7 +63,11 @@ Consume messages
    consumer = Client(url="amqp://user:pass@127.0.0.1", exchange="myexchange", prefetch_count=5)
    consumer.consume(callback, queue="messages", decorator=discard)
 
-yapw implements a pattern whereby the consumer declares and binds a queue. The queue's name and binding key are the same, and are namespaced by the exchange name.
+yapw implements a pattern whereby the consumer declares and binds a queue. By default, the queue's name and binding key are the same, and are namespaced by the exchange name. To set the binding keys:
+
+.. code-block:: python
+
+   consumer.consume(callback, queue="messages", routing_keys=["a", "b"], decorator=discard)
 
 .. seealso::
 
