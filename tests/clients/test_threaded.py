@@ -86,7 +86,7 @@ def nack_warner(state, channel, method, properties, body):
 
 
 def writer(state, channel, method, properties, body):
-    publish(state, channel, {"message": "value"}, "r")
+    publish(state, channel, {"message": "value"}, "n")
     ack(state, channel, method.delivery_tag)
 
 
@@ -232,7 +232,7 @@ def test_publish(message, caplog):
         ("DEBUG", f"Received message {encode(message)} with routing key yapw_test_q and delivery tag 1"),
         (
             "DEBUG",
-            "Published message {'message': 'value'} on channel 1 to exchange yapw_test with routing key yapw_test_r",
+            "Published message {'message': 'value'} on channel 1 to exchange yapw_test with routing key yapw_test_n",
         ),
         ("DEBUG", "Ack'd message on channel 1 with delivery tag 1"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
@@ -242,7 +242,7 @@ def test_publish(message, caplog):
 def test_consume_declares_queue(caplog):
     declarer = get_client()
     declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    declarer.consume(nack_warner, "q")
+    declarer.consume(raiser, "q")
 
     publisher = get_client()
     publisher.publish({"message": "value"}, "q")
@@ -259,3 +259,29 @@ def test_consume_declares_queue(caplog):
 
     assert len(caplog.records) > 1
     assert all(r.levelname == "WARNING" and r.message == "{'message': 'value'}" for r in caplog.records)
+
+
+def test_consume_declares_queue_routing_keys(caplog):
+    declarer = get_client()
+    declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    declarer.consume(raiser, "q", ["r", "k"])
+
+    publisher = get_client()
+    publisher.publish({"message": "r"}, "r")
+    publisher.publish({"message": "k"}, "k")
+
+    consumer = get_client()
+    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    consumer.consume(ack_warner, "q", ["r", "k"])
+
+    publisher.channel.queue_purge("yapw_test_q")
+    publisher.close()
+
+    assert consumer.channel.is_closed
+    assert consumer.connection.is_closed
+
+    assert len(caplog.records) == 2
+    assert [(r.levelname, r.message) for r in caplog.records] == [
+        ("WARNING", "{'message': 'r'}"),
+        ("WARNING", "{'message': 'k'}"),
+    ]

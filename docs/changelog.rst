@@ -4,6 +4,11 @@ Changelog
 0.0.6 (Unreleased)
 ------------------
 
+Added
+~~~~~
+
+-  :meth:`yapw.clients.Publisher.declare_queue` and :meth:`yapw.clients.Consumer.consume`: Rename the ``routing_key`` argument to ``queue``, and add a ``routing_keys`` optional argument.
+
 Changed
 ~~~~~~~
 

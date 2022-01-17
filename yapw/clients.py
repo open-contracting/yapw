@@ -210,16 +210,23 @@ class Publisher:
         if self.exchange:
             self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=self.durable)
 
-    def declare_queue(self, routing_key: str) -> None:
+    def declare_queue(self, queue: str, routing_keys: Optional[List[str]] = None) -> None:
         """
-        Declare a queue named after the routing key, and bind it to the exchange with the routing key.
+        Declare a queue, and bind it to the exchange with the routing keys. If no routing keys are provided, the queue
+        is bound to the exchange using its name as the routing key.
 
-        :param routing_key: the routing key
+        :param queue: the queue's name
+        :param routing_keys: the queue's routing keys
         """
-        formatted = self.format_routing_key(routing_key)
+        if not routing_keys:
+            routing_keys = [queue]
 
+        formatted = self.format_routing_key(queue)
         self.channel.queue_declare(queue=formatted, durable=self.durable)
-        self.channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=formatted)
+
+        for routing_key in routing_keys:
+            routing_key = self.format_routing_key(routing_key)
+            self.channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=routing_key)
 
     def publish(self, message: Any, routing_key: str) -> None:
         """
@@ -260,7 +267,7 @@ class Threaded:
 
     # Attributes that this mixin expects from base classes.
     format_routing_key: Callable[["Threaded", str], str]
-    declare_queue: Callable[["Threaded", str], None]
+    declare_queue: Callable[["Threaded", str, Optional[List[str]]], None]
     connection: pika.BlockingConnection
     channel: pika.adapters.blocking_connection.BlockingChannel
 
@@ -281,21 +288,28 @@ class Threaded:
 
         install_signal_handlers(self._on_shutdown)
 
-    def consume(self, callback: ConsumerCallback, routing_key: str, decorator: Decorator = halt) -> None:
+    def consume(
+        self,
+        callback: ConsumerCallback,
+        queue: str,
+        routing_keys: Optional[List[str]] = None,
+        decorator: Decorator = halt,
+    ) -> None:
         """
-        Declare a queue named after and bound by the routing key, and start consuming messages from that queue.
+        Declare a queue, bind it to the exchange with the routing keys, and start consuming messages from that queue.
+        If no routing keys are provided, the queue is bound to the exchange using its name as the routing key.
 
         The consumer callback must be a function that accepts ``(state, channel, method, properties, body)`` arguments,
         all but the first of which are the same as Pika's ``basic_consume``. The ``state`` argument is needed to pass
         attributes to :mod:`yapw.methods.blocking` functions.
 
         :param callback: the consumer callback
-        :param routing_key: the routing key
+        :param queue: the queue's name
+        :param routing_keys: the queue's routing keys
         :param decorator: the decorator of the consumer callback
         """
-        formatted = self.format_routing_key(routing_key)
-
-        self.declare_queue(routing_key)
+        self.declare_queue(queue, routing_keys)
+        formatted = self.format_routing_key(queue)
 
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
         klass = namedtuple("State", self.__getsafe__)  # type: ignore # https://github.com/python/mypy/issues/848
