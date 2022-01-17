@@ -1,5 +1,5 @@
 import logging
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pika
 import pytest
@@ -60,7 +60,29 @@ def test_declare_queue(connection, client_class, durable):
     client.declare_queue("q")
 
     client.channel.queue_declare.assert_called_once_with(queue="exch_q", durable=durable)
-    client.channel.queue_bind.assert_called_once_with(exchange="exch", queue="exch_q", routing_key="exch_q")
+    assert client.channel.queue_bind.call_count == 1
+    client.channel.queue_bind.assert_has_calls(
+        [
+            call(exchange="exch", queue="exch_q", routing_key="exch_q"),
+        ]
+    )
+
+
+@pytest.mark.parametrize("client_class,durable", [(DurableClient, True), (TransientClient, False)])
+@patch("pika.BlockingConnection")
+def test_declare_queue_routing_keys(connection, client_class, durable):
+    client = client_class(exchange="exch")
+
+    client.declare_queue("q", ["r", "k"])
+
+    client.channel.queue_declare.assert_called_once_with(queue="exch_q", durable=durable)
+    assert client.channel.queue_bind.call_count == 2
+    client.channel.queue_bind.assert_has_calls(
+        [
+            call(exchange="exch", queue="exch_q", routing_key="exch_r"),
+            call(exchange="exch", queue="exch_q", routing_key="exch_k"),
+        ]
+    )
 
 
 @pytest.mark.parametrize("client_class,delivery_mode", [(DurableClient, 2), (TransientClient, 1)])
