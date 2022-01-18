@@ -71,7 +71,8 @@ def decorate(
     """
     Decode the message ``body`` using the ``decode`` function, and call the consumer ``callback``.
 
-    If the ``callback`` function raises an exception, call the ``errback`` function.
+    If the ``callback`` function raises an exception, call the ``errback`` function. In any case, call the
+    ``finalback`` function after calling the ``callback`` function.
 
     If the ``decode`` function raises an exception, send the SIGUSR2 signal to the main thread.
 
