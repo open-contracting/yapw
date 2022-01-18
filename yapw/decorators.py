@@ -18,10 +18,10 @@ Decorators look like this (see :func:`~yapw.decorators.decorate` for context):
 
 
    def myfunction(decode, callback, state, channel, method, properties, body):
-    def errback():
-        # do something, like halting the process or nack'ing the message
+       def errback():
+           # do something, like halting the process or nack'ing the message
 
-    decorate(decode, callback, state, channel, method, properties, body, errback)
+       decorate(decode, callback, state, channel, method, properties, body, errback)
 
 User-defined decorators should avoid doing work outside the ``finally`` branch. Do work in the callback.
 """
