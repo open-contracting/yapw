@@ -52,6 +52,7 @@ from types import FrameType
 from typing import Any, Callable, List, Optional, Set, Tuple
 
 import pika
+from pika.exchange_type import ExchangeType
 
 from yapw.decorators import default_decode, halt
 from yapw.ossignal import install_signal_handlers, signal_names
@@ -145,7 +146,7 @@ class Blocking:
         super().__init__(**kwargs)
 
         parameters = pika.URLParameters(url)
-        parameters.blocked_connection_timeout = blocked_connection_timeout  # type: ignore # python/mypy#3186
+        parameters.blocked_connection_timeout = blocked_connection_timeout
 
         #: The connection.
         self.connection = pika.BlockingConnection(parameters)  # type: pika.BlockingConnection
@@ -179,7 +180,7 @@ class Publisher:
         self,
         *,
         exchange: str = "",
-        exchange_type: str = "direct",
+        exchange_type: ExchangeType = ExchangeType.direct,
         encode: Encode = default_encode,
         content_type: str = "application/json",
         routing_key_template: str = "{exchange}_{routing_key}",

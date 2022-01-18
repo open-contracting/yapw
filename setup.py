@@ -29,8 +29,8 @@ setup(
         ],
         "types": [
             "mypy",
-            "pika-stubs",
             "types-orjson",
+            "types-pika",
         ],
         "docs": [
             "furo",
