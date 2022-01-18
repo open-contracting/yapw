@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.0.7 (2022-01-18)
+------------------
+
+Added
+~~~~~
+
+-  :meth:`yapw.decorators.decorate` accepts a ``finalback`` keyword argument.
+
 0.0.6 (2022-01-17)
 ------------------
 

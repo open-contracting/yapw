@@ -66,6 +66,7 @@ def decorate(
     properties: pika.BasicProperties,
     body: bytes,
     errback: Callable[[], None],
+    finalback: Optional[Callable[[], None]] = None,
 ) -> None:
     """
     Decode the message ``body`` using the ``decode`` function, and call the consumer ``callback``.
@@ -87,6 +88,9 @@ def decorate(
             callback(state, channel, method, properties, message)
         except Exception:
             errback()
+        finally:
+            if finalback:
+                finalback()
     except Exception:
         logger.exception("%r can't be decoded, sending SIGUSR2", body)
         os.kill(os.getpid(), signal.SIGUSR2)

@@ -5,12 +5,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from yapw.decorators import default_decode, discard, requeue
+from yapw.decorators import decorate, default_decode, discard, requeue
 
 # https://pika.readthedocs.io/en/stable/modules/spec.html#pika.spec.Basic.Deliver
 Deliver = namedtuple("Deliver", "delivery_tag redelivered routing_key")
 # https://pika.readthedocs.io/en/stable/modules/spec.html#pika.spec.BasicProperties
 BasicProperties = namedtuple("BasicProperties", "content_type")
+
+logger = logging.getLogger(__name__)
 
 
 def raises(*args):
@@ -28,6 +30,16 @@ def closes(*args):
         raise Exception("message")
     finally:
         opened = False
+
+
+def finalback(decode, callback, state, channel, method, properties, body):
+    def errback():
+        logger.warning("errback")
+
+    def finalback():
+        logger.warning("finalback")
+
+    decorate(decode, callback, state, channel, method, properties, body, errback, finalback)
 
 
 @patch("yapw.decorators.nack")
@@ -139,3 +151,29 @@ def test_finally(nack):
 
     global opened
     assert opened is False
+
+
+@patch("yapw.decorators.nack")
+def test_finalback_raises(nack, caplog):
+    method = Deliver(1, False, "key")
+    properties = BasicProperties("application/json")
+
+    finalback(default_decode, raises, "state", "channel", method, properties, b'"body"')
+
+    assert len(caplog.records) == 2
+    assert caplog.records[0].levelname == "WARNING"
+    assert caplog.records[0].message == "errback"
+    assert caplog.records[-1].levelname == "WARNING"
+    assert caplog.records[-1].message == "finalback"
+
+
+@patch("yapw.decorators.nack")
+def test_finalback_passes(nack, caplog):
+    method = Deliver(1, False, "key")
+    properties = BasicProperties("application/json")
+
+    finalback(default_decode, passes, "state", "channel", method, properties, b'"body"')
+
+    assert len(caplog.records) == 1
+    assert caplog.records[-1].levelname == "WARNING"
+    assert caplog.records[-1].message == "finalback"
