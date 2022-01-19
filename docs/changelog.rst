@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.0.8 (2022-01-19)
+------------------
+
+Added
+~~~~~
+
+-  :meth:`yapw.decorators.decorate` passes the exception instance to the ``errback`` function via its ``exception`` argument.
+
 0.0.7 (2022-01-18)
 ------------------
 

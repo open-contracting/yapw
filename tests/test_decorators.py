@@ -33,7 +33,7 @@ def closes(*args):
 
 
 def finalback(decode, callback, state, channel, method, properties, body):
-    def errback():
+    def errback(exception):
         logger.warning("errback")
 
     def finalback():

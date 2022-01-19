@@ -18,7 +18,7 @@ Decorators look like this (see :func:`~yapw.decorators.decorate` for context):
 
 
    def myfunction(decode, callback, state, channel, method, properties, body):
-       def errback():
+       def errback(exception):
            # do something, like halting the process or nack'ing the message
 
        decorate(decode, callback, state, channel, method, properties, body, errback)
@@ -65,7 +65,7 @@ def decorate(
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
-    errback: Callable[[], None],
+    errback: Callable[[Exception], None],
     finalback: Optional[Callable[[], None]] = None,
 ) -> None:
     """
@@ -87,8 +87,8 @@ def decorate(
         message = decode(body, properties.content_type)
         try:
             callback(state, channel, method, properties, message)
-        except Exception:
-            errback()
+        except Exception as exception:
+            errback(exception)
         finally:
             if finalback:
                 finalback()
@@ -111,7 +111,7 @@ def halt(
     If the callback raises an exception, send the SIGUSR1 signal to the main thread, without acknowledgment.
     """
 
-    def errback() -> None:
+    def errback(exception) -> None:
         logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
         os.kill(os.getpid(), signal.SIGUSR1)
 
@@ -131,7 +131,7 @@ def discard(
     If the callback raises an exception, nack the message without requeueing.
     """
 
-    def errback() -> None:
+    def errback(exception) -> None:
         logger.exception("Unhandled exception when consuming %r, discarding message", body)
         nack(state, channel, method.delivery_tag, requeue=False)
 
@@ -151,7 +151,7 @@ def requeue(
     If the callback raises an exception, nack the message, and requeue the message unless it was redelivered.
     """
 
-    def errback() -> None:
+    def errback(exception) -> None:
         requeue = not method.redelivered
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
         nack(state, channel, method.delivery_tag, requeue=requeue)
