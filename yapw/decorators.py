@@ -111,7 +111,7 @@ def halt(
     If the callback raises an exception, send the SIGUSR1 signal to the main thread, without acknowledgment.
     """
 
-    def errback(exception) -> None:
+    def errback(exception: Exception) -> None:
         logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
         os.kill(os.getpid(), signal.SIGUSR1)
 
@@ -131,7 +131,7 @@ def discard(
     If the callback raises an exception, nack the message without requeueing.
     """
 
-    def errback(exception) -> None:
+    def errback(exception: Exception) -> None:
         logger.exception("Unhandled exception when consuming %r, discarding message", body)
         nack(state, channel, method.delivery_tag, requeue=False)
 
@@ -151,7 +151,7 @@ def requeue(
     If the callback raises an exception, nack the message, and requeue the message unless it was redelivered.
     """
 
-    def errback(exception) -> None:
+    def errback(exception: Exception) -> None:
         requeue = not method.redelivered
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
         nack(state, channel, method.delivery_tag, requeue=requeue)
