@@ -323,7 +323,11 @@ class Threaded:
         logger.debug("Consuming messages on channel %s from queue %s", self.channel.channel_number, formatted)
         try:
             self.channel.start_consuming()
-        finally:
+        except pika.exceptions.ConnectionClosedByBroker:
+            for thread in threads:
+                thread.join()
+            # The connection is already closed.
+        except Exception:
             for thread in threads:
                 thread.join()
             self.connection.close()

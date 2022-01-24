@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.0.9 (2022-01-24)
+------------------
+
+Fixed
+~~~~~
+
+-  :class:`yapw.clients.Threaded.consume` no longer attempts to close a closed connection.
+
 0.0.8 (2022-01-19)
 ------------------
 
