@@ -14,14 +14,18 @@ Yet Another Pika Wrapper |release|
 Configure a RabbitMQ client
 ---------------------------
 
-Create a Client class, by layering in :doc:`mixins<api/clients>`:
+Create client classes, by layering in :doc:`mixins<api/clients>`:
 
 .. code-block:: python
 
    from yapw import clients
 
 
-   class Client(clients.Threaded, clients.Durable, clients.Blocking, clients.Base):
+   class Consumer(clients.Threaded, clients.Durable, clients.Blocking, clients.Base):
+       pass
+
+
+   class Publisher(clients.Durable, clients.Blocking, clients.Base):
        pass
 
 Each mixing contributes features, such that a client will:
@@ -35,10 +39,14 @@ Publish messages outside a consumer callback
 
 .. code-block:: python
 
-   publisher = Client(url="amqp://user:pass@127.0.0.1", exchange="myexchange")
+   publisher = Publisher(url="amqp://user:pass@127.0.0.1", exchange="myexchange")
    publisher.publish({"message": "value"}, routing_key="messages")
 
 The routing key is namespaced by the exchange name, to make it "myexchange_messages".
+
+.. note::
+
+   The ``Threaded`` mixin installs :ref:`signal handlers<signal-handling>`, which can only be installed in the main thread. The ``Publisher`` class might be instantiated in a non-main thread (like in a web request); therefore, it doesn't inherit from the ``Threaded`` mixin.
 
 Consume messages
 ----------------
@@ -60,7 +68,7 @@ Consume messages
            ack(state, channel, method.delivery_tag)
 
 
-   consumer = Client(url="amqp://user:pass@127.0.0.1", exchange="myexchange", prefetch_count=5)
+   consumer = Consumer(url="amqp://user:pass@127.0.0.1", exchange="myexchange", prefetch_count=5)
    consumer.consume(callback, queue="messages", decorator=discard)
 
 yapw implements a pattern whereby the consumer declares and binds a queue. By default, the queue's name and binding key are the same, and are namespaced by the exchange name. To set the binding keys:
@@ -110,7 +118,7 @@ You can change this behavior. For example, change the bodies of the ``encode`` a
        return body
 
 
-   client = Client(encode=encode, decode=decode)
+   client = Consumer(encode=encode, decode=decode)
    publisher.publish({"message": "value"}, routing_key="messages")
 
 Error handling
@@ -126,6 +134,8 @@ When using `consumer prefetch <https://www.rabbitmq.com/consumer-prefetch.html>`
 The default decorator is the :func:`yapw.decorators.halt` function, which sends the SIGUSR1 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Threaded` mixin handles this signal by shutting down gracefully. See the :doc:`available decorators<api/decorators>` and the rationale for the default setting.
 
 All decorators also decode the message body, which can be configured as above. If an exception occurs while decoding, the decorator sends the SIGUSR2 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Threaded` mixin handles this signal by shutting down gracefully.
+
+.. _signal-handling:
 
 Signal handling
 ~~~~~~~~~~~~~~~
