@@ -52,6 +52,7 @@ from types import FrameType
 from typing import Any, Callable, List, Optional, Set, Tuple
 
 import pika
+import pika.exceptions
 from pika.exchange_type import ExchangeType
 
 from yapw.decorators import default_decode, halt
@@ -327,7 +328,7 @@ class Threaded:
             for thread in threads:
                 thread.join()
             # The connection is already closed.
-        except Exception:
+        else:
             for thread in threads:
                 thread.join()
             self.connection.close()
