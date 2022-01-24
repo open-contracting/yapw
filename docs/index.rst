@@ -41,6 +41,7 @@ Publish messages outside a consumer callback
 
    publisher = Publisher(url="amqp://user:pass@127.0.0.1", exchange="myexchange")
    publisher.publish({"message": "value"}, routing_key="messages")
+   publisher.close()
 
 The routing key is namespaced by the exchange name, to make it "myexchange_messages".
 
@@ -119,7 +120,6 @@ You can change this behavior. For example, change the bodies of the ``encode`` a
 
 
    client = Consumer(encode=encode, decode=decode)
-   publisher.publish({"message": "value"}, routing_key="messages")
 
 Error handling
 ~~~~~~~~~~~~~~
