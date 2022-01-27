@@ -49,7 +49,7 @@ import signal
 import threading
 from collections import namedtuple
 from types import FrameType
-from typing import Any, Callable, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import pika
 import pika.exceptions
@@ -212,7 +212,9 @@ class Publisher:
         if self.exchange:
             self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=self.durable)
 
-    def declare_queue(self, queue: str, routing_keys: Optional[List[str]] = None) -> None:
+    def declare_queue(
+        self, queue: str, routing_keys: Optional[List[str]] = None, arguments: Optional[Dict] = None
+    ) -> None:
         """
         Declare a queue, and bind it to the exchange with the routing keys. If no routing keys are provided, the queue
         is bound to the exchange using its name as the routing key.
@@ -224,7 +226,7 @@ class Publisher:
             routing_keys = [queue]
 
         formatted = self.format_routing_key(queue)
-        self.channel.queue_declare(queue=formatted, durable=self.durable)
+        self.channel.queue_declare(queue=formatted, durable=self.durable, arguments=arguments)
 
         for routing_key in routing_keys:
             routing_key = self.format_routing_key(routing_key)
@@ -296,6 +298,7 @@ class Threaded:
         queue: str,
         routing_keys: Optional[List[str]] = None,
         decorator: Decorator = halt,
+        arguments: Optional[Dict] = None,
     ) -> None:
         """
         Declare a queue, bind it to the exchange with the routing keys, and start consuming messages from that queue.
@@ -309,8 +312,9 @@ class Threaded:
         :param queue: the queue's name
         :param routing_keys: the queue's routing keys
         :param decorator: the decorator of the consumer callback
+        :param arguments: the ``arguments`` parameter to the ``queue_declare`` method
         """
-        self.declare_queue(queue, routing_keys)
+        self.declare_queue(queue, routing_keys, arguments=arguments)
         formatted = self.format_routing_key(queue)
 
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.

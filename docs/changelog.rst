@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.0.11 (2022-01-27)
+-------------------
+
+Added
+~~~~~
+
+-  :class:`yapw.clients.Publisher.declare_queue` and :class:`yapw.clients.Threaded.consume` accept an ``arguments`` keyword argument.
+
 0.0.10 (2022-01-24)
 -------------------
 
