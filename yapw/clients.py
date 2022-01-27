@@ -213,7 +213,7 @@ class Publisher:
             self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=self.durable)
 
     def declare_queue(
-        self, queue: str, routing_keys: Optional[List[str]] = None, arguments: Optional[Dict] = None
+        self, queue: str, routing_keys: Optional[List[str]] = None, arguments: Optional[Dict[str, str]] = None
     ) -> None:
         """
         Declare a queue, and bind it to the exchange with the routing keys. If no routing keys are provided, the queue
@@ -271,7 +271,7 @@ class Threaded:
 
     # Attributes that this mixin expects from base classes.
     format_routing_key: Callable[["Threaded", str], str]
-    declare_queue: Callable[["Threaded", str, Optional[List[str]]], None]
+    declare_queue: Callable[["Threaded", str, Optional[List[str]], Optional[Dict[str, str]]], None]
     connection: pika.BlockingConnection
     channel: pika.adapters.blocking_connection.BlockingChannel
 
@@ -298,7 +298,7 @@ class Threaded:
         queue: str,
         routing_keys: Optional[List[str]] = None,
         decorator: Decorator = halt,
-        arguments: Optional[Dict] = None,
+        arguments: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Declare a queue, bind it to the exchange with the routing keys, and start consuming messages from that queue.
@@ -314,7 +314,7 @@ class Threaded:
         :param decorator: the decorator of the consumer callback
         :param arguments: the ``arguments`` parameter to the ``queue_declare`` method
         """
-        self.declare_queue(queue, routing_keys, arguments=arguments)
+        self.declare_queue(queue, routing_keys, arguments)
         formatted = self.format_routing_key(queue)
 
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
