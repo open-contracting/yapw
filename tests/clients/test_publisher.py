@@ -59,7 +59,7 @@ def test_declare_queue(connection, client_class, durable):
 
     client.declare_queue("q")
 
-    client.channel.queue_declare.assert_called_once_with(queue="exch_q", durable=durable)
+    client.channel.queue_declare.assert_called_once_with(queue="exch_q", durable=durable, arguments=None)
     assert client.channel.queue_bind.call_count == 1
     client.channel.queue_bind.assert_has_calls(
         [
@@ -75,7 +75,7 @@ def test_declare_queue_routing_keys(connection, client_class, durable):
 
     client.declare_queue("q", ["r", "k"])
 
-    client.channel.queue_declare.assert_called_once_with(queue="exch_q", durable=durable)
+    client.channel.queue_declare.assert_called_once_with(queue="exch_q", durable=durable, arguments=None)
     assert client.channel.queue_bind.call_count == 2
     client.channel.queue_bind.assert_has_calls(
         [
