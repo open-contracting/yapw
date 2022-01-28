@@ -46,8 +46,8 @@ from __future__ import annotations
 import functools
 import logging
 import signal
-import threading
 from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
 from types import FrameType
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -71,23 +71,10 @@ def _on_message(
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
-    args: Tuple[List[threading.Thread], Decorator, Decode, ConsumerCallback, State],
+    args: Tuple[ThreadPoolExecutor, Decorator, Decode, ConsumerCallback, State],
 ) -> None:
-    (threads, decorator, decode, callback, state) = args
-    thread = threading.Thread(target=decorator, args=(decode, callback, state, channel, method, properties, body))
-    thread.start()
-
-    alive = [thread]
-    # Clean up threads occasionally to avoid a memory leak.
-    if len(threads) > 100:
-        for t in threads:
-            if t.is_alive():
-                alive.append(t)
-            # Python 3.8 and below has a memory leak. https://github.com/python/cpython/pull/26103
-            else:
-                t.join()
-
-    threads[:] = alive
+    (executor, decorator, decode, callback, state) = args
+    executor.submit(decorator, decode, callback, state, channel, method, properties, body)
 
 
 class Base:
@@ -146,7 +133,7 @@ class Blocking:
         url: str = "amqp://127.0.0.1",
         blocked_connection_timeout: float = 1800,
         prefetch_count: int = 1,
-        **kwargs: Any
+        **kwargs: Any,
     ):
         """
         Connect to RabbitMQ and create a channel.
@@ -196,7 +183,7 @@ class Publisher:
         encode: Encode = default_encode,
         content_type: str = "application/json",
         routing_key_template: str = "{exchange}_{routing_key}",
-        **kwargs: Any
+        **kwargs: Any,
     ):
         """
         Declare an exchange, unless using the default exchange.
@@ -332,20 +319,18 @@ class Threaded:
         klass = namedtuple("State", self.__getsafe__)  # type: ignore # https://github.com/python/mypy/issues/848
         state = klass(**{attr: getattr(self, attr) for attr in self.__getsafe__})  # type: ignore
 
-        threads = []  # type: List[threading.Thread]
-        on_message_callback = functools.partial(_on_message, args=(threads, decorator, self.decode, callback, state))
+        executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{queue}")
+        on_message_callback = functools.partial(_on_message, args=(executor, decorator, self.decode, callback, state))
         self.channel.basic_consume(formatted, on_message_callback)
 
         logger.debug("Consuming messages on channel %s from queue %s", self.channel.channel_number, formatted)
         try:
             self.channel.start_consuming()
         except pika.exceptions.ConnectionClosedByBroker:
-            for thread in threads:
-                thread.join()
+            executor.shutdown()
             # The connection is already closed.
         else:
-            for thread in threads:
-                thread.join()
+            executor.shutdown()
             self.connection.close()
 
     def _on_shutdown(self, signum: int, frame: Optional[FrameType]) -> None:
