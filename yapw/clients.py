@@ -76,7 +76,18 @@ def _on_message(
     (threads, decorator, decode, callback, state) = args
     thread = threading.Thread(target=decorator, args=(decode, callback, state, channel, method, properties, body))
     thread.start()
-    threads.append(thread)
+
+    alive = [thread]
+    # Clean up threads occasionally to avoid a memory leak.
+    if len(threads) > 100:
+        for t in threads:
+            if t.is_alive():
+                alive.append(t)
+            # Python 3.8 and below has a memory leak. https://github.com/python/cpython/pull/26103
+            else:
+                t.join()
+
+    threads[:] = alive
 
 
 class Base:
