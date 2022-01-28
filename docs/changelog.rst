@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.0.13 (2022-01-28)
+-------------------
+
+Fixed
+~~~~~
+
+-  Make thread management thread-safe in :class:`yapw.clients.Threaded`.
+
 0.0.12 (2022-01-27)
 -------------------
 
@@ -23,7 +31,7 @@ Added
 Fixed
 ~~~~~
 
--  Regression in 0.0.9.
+-  :meth:`yapw.clients.Threaded.consume` cleans up threads and closes the connection (regression in 0.0.9).
 
 0.0.9 (2022-01-24)
 ------------------

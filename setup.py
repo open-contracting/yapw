@@ -5,7 +5,7 @@ with open("README.rst") as f:
 
 setup(
     name="yapw",
-    version="0.0.12",
+    version="0.0.13",
     author="Open Contracting Partnership",
     author_email="data@open-contracting.org",
     url="https://github.com/open-contracting/yapw",
