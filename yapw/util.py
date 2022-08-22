@@ -9,7 +9,7 @@ try:
 
     jsonlib = orjson
 except ImportError:
-    jsonlib = json  # type: ignore # https://github.com/python/mypy/issues/1153
+    jsonlib = json  # type: ignore
 
 from yapw.types import PublishKeywords, State
 
