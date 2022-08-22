@@ -106,7 +106,7 @@ class Base:
         """
         return self.routing_key_template.format(routing_key=routing_key, **self.__dict__)
 
-    @property  # type: ignore # https://github.com/python/mypy/issues/1362
+    @property  # type: ignore # python/mypy#1362 waiting for mypy>0.971
     @functools.lru_cache(maxsize=None)
     def __getsafe__(self) -> Set[str]:
         """
@@ -198,7 +198,7 @@ class Publisher:
         :param content_type: the message's content type
         :param routing_key_template: see :meth:`~yapw.clients.Base.__init__`
         """
-        super().__init__(routing_key_template=routing_key_template, **kwargs)  # type: ignore # python/mypy#5887
+        super().__init__(routing_key_template=routing_key_template, **kwargs)  # type: ignore # python/mypy#4335
 
         #: The exchange name.
         self.exchange = exchange  # type: str
@@ -316,7 +316,7 @@ class Threaded:
         formatted = self.format_routing_key(queue)
 
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
-        klass = namedtuple("State", self.__getsafe__)  # type: ignore # https://github.com/python/mypy/issues/848
+        klass = namedtuple("State", self.__getsafe__)  # type: ignore # python/mypy#848 "This just never will happen"
         state = klass(**{attr: getattr(self, attr) for attr in self.__getsafe__})  # type: ignore
 
         executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{queue}")

@@ -26,7 +26,7 @@ def publish(
     :param routing_key: the routing key
     """
     keywords = basic_publish_kwargs(state, message, routing_key)
-    keywords.update(kwargs)  # type: ignore # https://github.com/python/mypy/issues/4441
+    keywords.update(kwargs)  # type: ignore # python/mypy#4441
 
     _channel_method_from_thread(state.connection, channel, "publish", *args, **keywords)
     logger.debug(*basic_publish_debug_args(channel, message, keywords))
