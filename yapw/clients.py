@@ -106,7 +106,7 @@ class Base:
         """
         return self.routing_key_template.format(routing_key=routing_key, **self.__dict__)
 
-    @property  # type: ignore # python/mypy#1362 waiting for mypy>0.971
+    @property
     @functools.lru_cache(maxsize=None)
     def __getsafe__(self) -> Set[str]:
         """
@@ -170,7 +170,7 @@ class Publisher:
     delivery_mode: int
 
     # Attributes that this mixin expects from base classes.
-    format_routing_key: Callable[["Publisher", str], str]
+    format_routing_key: Callable[[str], str]
     channel: pika.channel.Channel
 
     __safe__ = ["exchange", "encode", "content_type", "delivery_mode"]
@@ -268,8 +268,8 @@ class Threaded:
     """
 
     # Attributes that this mixin expects from base classes.
-    format_routing_key: Callable[["Threaded", str], str]
-    declare_queue: Callable[["Threaded", str, Optional[List[str]], Optional[Dict[str, str]]], None]
+    format_routing_key: Callable[[str], str]
+    declare_queue: Callable[[str, Optional[List[str]], Optional[Dict[str, str]]], None]
     connection: pika.BlockingConnection
     channel: pika.adapters.blocking_connection.BlockingChannel
 
