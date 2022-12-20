@@ -95,7 +95,7 @@ class Base:
             the ``{routing_key}`` replacement field and that may contain other fields matching writable attributes
         """
         #: The format string for the routing key.
-        self.routing_key_template = routing_key_template  # type: str
+        self.routing_key_template: str = routing_key_template
 
     def format_routing_key(self, routing_key: str) -> str:
         """
@@ -148,10 +148,10 @@ class Blocking:
         parameters.blocked_connection_timeout = blocked_connection_timeout
 
         #: The connection.
-        self.connection = pika.BlockingConnection(parameters)  # type: pika.BlockingConnection
+        self.connection: pika.BlockingConnection = pika.BlockingConnection(parameters)
 
         #: The channel.
-        self.channel = self.connection.channel()  # type: pika.adapters.blocking_connection.BlockingChannel
+        self.channel: pika.adapters.blocking_connection.BlockingChannel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=prefetch_count)
 
     def close(self) -> None:
@@ -201,11 +201,11 @@ class Publisher:
         super().__init__(routing_key_template=routing_key_template, **kwargs)  # type: ignore # python/mypy#4335
 
         #: The exchange name.
-        self.exchange = exchange  # type: str
+        self.exchange: str = exchange
         #: The message body's encoder.
-        self.encode = encode  # type: Encode
+        self.encode: Encode = encode
         #: The message's content type.
-        self.content_type = content_type  # type: str
+        self.content_type: str = content_type
 
         if self.exchange:
             self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=self.durable)
@@ -286,7 +286,7 @@ class Threaded:
         super().__init__(**kwargs)
 
         #: The message body's decoder.
-        self.decode = decode  # type: Decode
+        self.decode: Decode = decode
 
         install_signal_handlers(self._on_shutdown)
 
