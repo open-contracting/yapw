@@ -18,6 +18,7 @@ jobs:
       - name: Test
         env:
           TEST_RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports[5672] }}
+        shell: bash
         run: |
           coverage run --append --source=yapw -m pytest -W error
           pip install orjson
