@@ -1,11 +1,13 @@
 """
-Mixins that can be combined to create a RabbitMQ client. For example:
+Mixins that can be combined to create a RabbitMQ client.
+
+For example:
 
 .. code-block:: python
 
    from yapw import clients
 
-   class Client(clients.Threaded, clients.Durable, clients.Blocking, clients.Base):
+   class Client(clients.Threaded, clients.Blocking, clients.Base):
        pass
 
 The layers are:
@@ -22,13 +24,6 @@ Connection
   Available mixins:
 
   -  :class:`~yapw.clients.Blocking`
-Publisher
-  Declare an exchange, declare and bind queues, and publish messages.
-
-  Available mixins:
-
-  -  :class:`~yapw.clients.Durable`
-  -  :class:`~yapw.clients.Transient`
 Consumer
   Consume messages.
 
@@ -119,13 +114,16 @@ class Base:
 
 class Blocking:
     """
-    Uses a blocking connection while avoiding deadlocks due to
+    Uses a blocking connection adapter while avoiding deadlocks due to
     `blocked connections <https://www.rabbitmq.com/connection-blocked.html>`__.
     """
 
+    # Attributes that this mixin expects from base classes.
+    format_routing_key: Callable[[str], str]
+
     # The connection isn't "safe to use" but it can be "used safely" like in:
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
-    __safe__ = ["connection"]
+    __safe__ = ["connection", "exchange", "encode", "content_type", "delivery_mode"]
 
     def __init__(
         self,
@@ -133,51 +131,7 @@ class Blocking:
         url: str = "amqp://127.0.0.1",
         blocked_connection_timeout: float = 1800,
         prefetch_count: int = 1,
-        **kwargs: Any,
-    ):
-        """
-        Connect to RabbitMQ and create a channel.
-
-        :param url: the connection string (don't set a blocked_connection_timeout query string parameter)
-        :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
-        :param prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
-        """
-        super().__init__(**kwargs)
-
-        parameters = pika.URLParameters(url)
-        parameters.blocked_connection_timeout = blocked_connection_timeout
-
-        #: The connection.
-        self.connection: pika.BlockingConnection = pika.BlockingConnection(parameters)
-
-        #: The channel.
-        self.channel: pika.adapters.blocking_connection.BlockingChannel = self.connection.channel()
-        self.channel.basic_qos(prefetch_count=prefetch_count)
-
-    def close(self) -> None:
-        """
-        Close the connection.
-        """
-        self.connection.close()
-
-
-class Publisher:
-    """
-    An abstract parent class. Use :class:`~yapw.clients.Durable` or :class:`~yapw.clients.Transient` instead.
-    """
-
-    durable: bool
-    delivery_mode: int
-
-    # Attributes that this mixin expects from base classes.
-    format_routing_key: Callable[[str], str]
-    channel: pika.channel.Channel
-
-    __safe__ = ["exchange", "encode", "content_type", "delivery_mode"]
-
-    def __init__(
-        self,
-        *,
+        durable: bool = True,
         exchange: str = "",
         exchange_type: ExchangeType = ExchangeType.direct,
         encode: Encode = default_encode,
@@ -186,29 +140,47 @@ class Publisher:
         **kwargs: Any,
     ):
         """
-        Declare an exchange, unless using the default exchange.
+        Connect to RabbitMQ, create a channel and declare an exchange, unless using the default exchange.
 
         When publishing a message, by default, its body is encoded using :func:`yapw.util.default_encode`, and its
         content type is set to "application/json". Use the ``encode`` and ``content_type`` keyword arguments to change
         this. The ``encode`` must be a function that accepts ``(message, content_type)`` arguments and returns bytes.
 
+        :param url: the connection string (don't set a blocked_connection_timeout query string parameter)
+        :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
+        :param prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
+        :param durable: whether to declare a durable exchange, declare durable queues, and publish persistent messages
         :param exchange: the exchange name
         :param exchange_type: the exchange type
-        :param encode: the message body's encoder
-        :param content_type: the message's content type
+        :param encode: the message bodies' encoder
+        :param content_type: the messages' content type
         :param routing_key_template: see :meth:`~yapw.clients.Base.__init__`
         """
         super().__init__(routing_key_template=routing_key_template, **kwargs)  # type: ignore # python/mypy#4335
 
+        parameters = pika.URLParameters(url)
+        parameters.blocked_connection_timeout = blocked_connection_timeout
+
+        #: Whether to declare a durable exchange, declare durable queues, and publish persistent messages.
+        self.durable = durable
         #: The exchange name.
         self.exchange: str = exchange
-        #: The message body's encoder.
+        #: The message bodies' encoder.
         self.encode: Encode = encode
-        #: The message's content type.
+        #: The messages' content type.
         self.content_type: str = content_type
+        #: #: The messages' delivery mode.
+        self.delivery_mode = 2 if durable else 1
 
-        if self.exchange:
-            self.channel.exchange_declare(exchange=self.exchange, exchange_type=exchange_type, durable=self.durable)
+        #: The connection.
+        self.connection: pika.BlockingConnection = pika.BlockingConnection(parameters)
+
+        #: The channel.
+        self.channel: pika.adapters.blocking_connection.BlockingChannel = self.connection.channel()
+        self.channel.basic_qos(prefetch_count=prefetch_count)
+
+        if exchange:
+            self.channel.exchange_declare(exchange=exchange, exchange_type=exchange_type, durable=durable)
 
     def declare_queue(
         self, queue: str, routing_keys: Optional[List[str]] = None, arguments: Optional[Dict[str, str]] = None
@@ -242,23 +214,11 @@ class Publisher:
         self.channel.basic_publish(**keywords)
         logger.debug(*basic_publish_debug_args(self.channel, message, keywords))
 
-
-class Transient(Publisher):
-    """
-    Declares a transient exchange, declares transient queues, and uses transient messages.
-    """
-
-    durable = False
-    delivery_mode = 1
-
-
-class Durable(Publisher):
-    """
-    Declares a durable exchange, declares durable queues, and uses persistent messages.
-    """
-
-    durable = True
-    delivery_mode = 2
+    def close(self) -> None:
+        """
+        Close the connection.
+        """
+        self.connection.close()
 
 
 # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py

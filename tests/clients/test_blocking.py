@@ -9,7 +9,7 @@ class Client(Blocking, Base):
 
 @patch("pika.BlockingConnection")
 def test_init_default(connection):
-    client = Client()
+    client = Client(durable=False)
 
     connection.assert_called_once()
 
@@ -22,7 +22,10 @@ def test_init_default(connection):
 @patch("pika.BlockingConnection")
 def test_init_kwargs(connection):
     client = Client(
-        url="https://host:1234/%2Fv?blocked_connection_timeout=10", blocked_connection_timeout=300, prefetch_count=10
+        url="https://host:1234/%2Fv?blocked_connection_timeout=10",
+        blocked_connection_timeout=300,
+        prefetch_count=10,
+        durable=False,
     )
 
     connection.assert_called_once()

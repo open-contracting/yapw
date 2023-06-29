@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-class Client(clients.Threaded, clients.Transient, clients.Blocking, clients.Base):
+class Client(clients.Threaded, clients.Blocking, clients.Base):
     pass
 
 
@@ -21,7 +21,7 @@ def callback(state, channel, method, properties, body):
 
 
 def main():
-    client = Client(exchange="yapw_development")
+    client = Client(durable=False, exchange="yapw_development")
     client.consume(callback, "raise", decorator=requeue)
 
 

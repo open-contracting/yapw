@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.1.0 (2023-06-29)
+------------------
+
+Changed
+~~~~~~~
+
+-  **BREAKING CHANGE:** Merge ``yapw.clients.Publisher`` into :class:`yapw.clients.Blocking`, because its methods are synchronous. Replace ``Durable`` and ``Transient`` with a ``durable`` keyword argument.
+
 0.0.13 (2022-01-28)
 -------------------
 
@@ -23,7 +31,7 @@ Fixed
 Added
 ~~~~~
 
--  :meth:`yapw.clients.Publisher.declare_queue` and :meth:`yapw.clients.Threaded.consume` accept an ``arguments`` keyword argument.
+-  ``yapw.clients.Publisher.declare_queue`` and :meth:`yapw.clients.Threaded.consume` accept an ``arguments`` keyword argument.
 
 0.0.10 (2022-01-24)
 -------------------
@@ -63,7 +71,7 @@ Added
 Added
 ~~~~~
 
--  :meth:`yapw.clients.Publisher.declare_queue` and :meth:`yapw.clients.Consumer.consume`: Rename the ``routing_key`` argument to ``queue``, and add a ``routing_keys`` optional argument.
+-  ``yapw.clients.Publisher.declare_queue`` and :meth:`yapw.clients.Consumer.consume`: Rename the ``routing_key`` argument to ``queue``, and add a ``routing_keys`` optional argument.
 
 Changed
 ~~~~~~~
@@ -83,8 +91,8 @@ Changed
 ~~~~~~~
 
 -  Add ``decode`` as first argument to :mod:`yapw.decorators` functions.
--  :class:`yapw.clients.Publisher`: Rename ``encoder`` keyword argument to ``encode``.
--  :class:`yapw.clients.Publisher`'s ``encode`` keyword argument defaults to :func:`yapw.util.default_encode`.
+-  ``yapw.clients.Publisher``: Rename ``encoder`` keyword argument to ``encode``.
+-  ``yapw.clients.Publisher``'s ``encode`` keyword argument defaults to :func:`yapw.util.default_encode`.
 -  :func:`yapw.util.default_encode` encodes ``str`` to ``bytes`` and pickles non-``str`` to ``bytes``.
 
 0.0.4 (2021-11-19)
@@ -93,7 +101,7 @@ Changed
 Added
 ~~~~~
 
--  :class:`yapw.clients.Publisher` (and children) accepts ``encoder`` and ``content_type`` keyword arguments.
+-  ``yapw.clients.Publisher`` (and children) accepts ``encoder`` and ``content_type`` keyword arguments.
 
 Changed
 ~~~~~~~

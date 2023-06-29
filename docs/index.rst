@@ -21,17 +21,16 @@ Create client classes, by layering in :doc:`mixins<api/clients>`:
    from yapw import clients
 
 
-   class Consumer(clients.Threaded, clients.Durable, clients.Blocking, clients.Base):
+   class Consumer(clients.Threaded, clients.Blocking, clients.Base):
        pass
 
 
-   class Publisher(clients.Durable, clients.Blocking, clients.Base):
+   class Publisher(clients.Blocking, clients.Base):
        pass
 
 Each mixing contributes features, such that a client will:
 
--  :class:`~yapw.clients.Blocking`: Use `pika.BlockingConnection <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__, while avoiding deadlocks by setting ``blocked_connection_timeout`` to a sensible default.
--  :class:`~yapw.clients.Durable`: Declare a durable exchange, use persistent messages on :meth:`~yapw.clients.Durable.publish`, and create a durable queue on :meth:`~yapw.clients.Threaded.consume`.
+-  :class:`~yapw.clients.Blocking`: Use `pika.BlockingConnection <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__, while avoiding deadlocks by setting ``blocked_connection_timeout`` to a sensible default. Declare an exchange.
 -  :class:`~yapw.clients.Threaded`: Run the consumer callback in separate threads when consuming messages. Install handlers for the SIGTERM, SIGINT and user-defined signals to stop consuming messages, wait for threads to terminate, and close the connection.
 
 Publish messages outside a consumer callback
@@ -94,7 +93,7 @@ The :func:`~yapw.methods.blocking.ack`, :func:`~yapw.methods.blocking.nack` and 
 Encoding and decoding
 ~~~~~~~~~~~~~~~~~~~~~
 
-By default, when publishing messages, the :class:`~yapw.clients.Durable` and :class:`~yapw.clients.Transient` mixins use a content type of "application/json" and encode the message body with the :func:`~yapw.util.default_encode` function, which serializes to JSON-formatted bytes when the content type is "application/json".
+By default, when publishing messages, the :class:`~yapw.clients.Blocking` mixin uses a content type of "application/json" and encodes the message body with the :func:`~yapw.util.default_encode` function, which serializes to JSON-formatted bytes when the content type is "application/json".
 
 Similarly, when consuming messages, the :class:`yapw.clients.Threaded` mixin uses the :func:`~yapw.decorators.default_decode` function, which deserializes from JSON-formatted bytes when the consumed message's content type is "application/json".
 

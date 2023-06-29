@@ -26,11 +26,11 @@ class State(NamedTuple):
     connection: pika.BlockingConnection
     #: The exchange name.
     exchange: str
-    #: The message body's encoder.
+    #: The message bodies' encoder.
     encode: Encode
-    #: The message's content type.
+    #: The messages' content type.
     content_type: str
-    #: The message's delivery mode.
+    #: The messages' delivery mode.
     delivery_mode: int
 
 

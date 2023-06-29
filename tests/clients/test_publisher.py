@@ -4,15 +4,11 @@ from unittest.mock import call, patch
 import pika
 import pytest
 
-from yapw.clients import Base, Blocking, Durable, Transient
+from yapw.clients import Base, Blocking
 from yapw.util import default_encode
 
 
-class DurableClient(Durable, Blocking, Base):
-    pass
-
-
-class TransientClient(Transient, Blocking, Base):
+class Client(Blocking, Base):
     pass
 
 
@@ -20,10 +16,10 @@ def dumps(message, content_type):
     return b"overridden"
 
 
-@pytest.mark.parametrize("client_class", [DurableClient, TransientClient])
+@pytest.mark.parametrize("durable", [True, False])
 @patch("pika.BlockingConnection")
-def test_init_default(connection, client_class):
-    client = client_class()
+def test_init_default(connection, durable):
+    client = Client(durable=durable)
 
     client.channel.exchange_declare.assert_not_called()
 
@@ -33,10 +29,11 @@ def test_init_default(connection, client_class):
     assert client.format_routing_key("test") == "_test"
 
 
-@pytest.mark.parametrize("client_class,durable", [(DurableClient, True), (TransientClient, False)])
+@pytest.mark.parametrize("durable", [True, False])
 @patch("pika.BlockingConnection")
-def test_init_kwargs(connection, client_class, durable):
-    client = client_class(
+def test_init_kwargs(connection, durable):
+    client = Client(
+        durable=durable,
         exchange="exch",
         exchange_type="fanout",
         encode=dumps,
@@ -52,10 +49,10 @@ def test_init_kwargs(connection, client_class, durable):
     assert client.format_routing_key("test") == "test_exch"
 
 
-@pytest.mark.parametrize("client_class,durable", [(DurableClient, True), (TransientClient, False)])
+@pytest.mark.parametrize("durable", [True, False])
 @patch("pika.BlockingConnection")
-def test_declare_queue(connection, client_class, durable):
-    client = client_class(exchange="exch")
+def test_declare_queue(connection, durable):
+    client = Client(durable=durable, exchange="exch")
 
     client.declare_queue("q")
 
@@ -68,10 +65,10 @@ def test_declare_queue(connection, client_class, durable):
     )
 
 
-@pytest.mark.parametrize("client_class,durable", [(DurableClient, True), (TransientClient, False)])
+@pytest.mark.parametrize("durable", [True, False])
 @patch("pika.BlockingConnection")
-def test_declare_queue_routing_keys(connection, client_class, durable):
-    client = client_class(exchange="exch")
+def test_declare_queue_routing_keys(connection, durable):
+    client = Client(durable=durable, exchange="exch")
 
     client.declare_queue("q", ["r", "k"])
 
@@ -85,14 +82,14 @@ def test_declare_queue_routing_keys(connection, client_class, durable):
     )
 
 
-@pytest.mark.parametrize("client_class,delivery_mode", [(DurableClient, 2), (TransientClient, 1)])
+@pytest.mark.parametrize("durable,delivery_mode", [(True, 2), (False, 1)])
 @patch("pika.BlockingConnection")
-def test_publish(connection, client_class, delivery_mode, caplog):
+def test_publish(connection, durable, delivery_mode, caplog):
     connection.return_value.channel.return_value.channel_number = 1
 
     caplog.set_level(logging.DEBUG)
 
-    client = client_class(exchange="exch")
+    client = Client(durable=durable, exchange="exch")
 
     client.publish({"a": 1}, "q")
 
