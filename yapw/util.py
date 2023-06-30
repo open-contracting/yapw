@@ -72,7 +72,9 @@ def basic_publish_kwargs(state: Union["Blocking", State], message: Any, routing_
 
 
 def basic_publish_debug_args(
-    channel: pika.channel.Channel, message: Any, keywords: PublishKeywords
+    channel: Union[pika.channel.Channel, pika.adapters.blocking_connection.BlockingChannel],
+    message: Any,
+    keywords: PublishKeywords,
 ) -> Tuple[str, Any, int, str, str]:
     """
     Prepare arguments for ``logger.debug`` related to publishing a message.
