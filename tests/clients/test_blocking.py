@@ -1,15 +1,11 @@
 from unittest.mock import patch
 
-from yapw.clients import Base, Blocking
-
-
-class Client(Blocking, Base):
-    pass
+from yapw.clients import Blocking
 
 
 @patch("pika.BlockingConnection")
 def test_init_default(connection):
-    client = Client(durable=False)
+    client = Blocking(durable=False)
 
     connection.assert_called_once()
 
@@ -21,7 +17,7 @@ def test_init_default(connection):
 
 @patch("pika.BlockingConnection")
 def test_init_kwargs(connection):
-    client = Client(
+    client = Blocking(
         url="https://host:1234/%2Fv?blocked_connection_timeout=10",
         blocked_connection_timeout=300,
         prefetch_count=10,

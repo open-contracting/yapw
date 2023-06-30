@@ -8,7 +8,7 @@ def test_format_routing_key_default():
 
     formatted = client.format_routing_key("test")
 
-    assert formatted == "test"
+    assert formatted == "_test"
 
 
 def test_format_routing_key_kwargs():

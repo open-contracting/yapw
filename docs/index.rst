@@ -21,11 +21,11 @@ Create client classes, by layering in :doc:`mixins<api/clients>`:
    from yapw import clients
 
 
-   class Consumer(clients.Threaded, clients.Blocking, clients.Base):
+   class Consumer(clients.Threaded, clients.Blocking):
        pass
 
 
-   class Publisher(clients.Blocking, clients.Base):
+   class Publisher(clients.Blocking):
        pass
 
 Each mixing contributes features, such that a client will:

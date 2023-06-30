@@ -4,12 +4,8 @@ from unittest.mock import call, patch
 import pika
 import pytest
 
-from yapw.clients import Base, Blocking
+from yapw.clients import Blocking
 from yapw.util import default_encode
-
-
-class Client(Blocking, Base):
-    pass
 
 
 def dumps(message, content_type):
@@ -19,7 +15,7 @@ def dumps(message, content_type):
 @pytest.mark.parametrize("durable", [True, False])
 @patch("pika.BlockingConnection")
 def test_init_default(connection, durable):
-    client = Client(durable=durable)
+    client = Blocking(durable=durable)
 
     client.channel.exchange_declare.assert_not_called()
 
@@ -32,7 +28,7 @@ def test_init_default(connection, durable):
 @pytest.mark.parametrize("durable", [True, False])
 @patch("pika.BlockingConnection")
 def test_init_kwargs(connection, durable):
-    client = Client(
+    client = Blocking(
         durable=durable,
         exchange="exch",
         exchange_type="fanout",
@@ -52,7 +48,7 @@ def test_init_kwargs(connection, durable):
 @pytest.mark.parametrize("durable", [True, False])
 @patch("pika.BlockingConnection")
 def test_declare_queue(connection, durable):
-    client = Client(durable=durable, exchange="exch")
+    client = Blocking(durable=durable, exchange="exch")
 
     client.declare_queue("q")
 
@@ -68,7 +64,7 @@ def test_declare_queue(connection, durable):
 @pytest.mark.parametrize("durable", [True, False])
 @patch("pika.BlockingConnection")
 def test_declare_queue_routing_keys(connection, durable):
-    client = Client(durable=durable, exchange="exch")
+    client = Blocking(durable=durable, exchange="exch")
 
     client.declare_queue("q", ["r", "k"])
 
@@ -89,7 +85,7 @@ def test_publish(connection, durable, delivery_mode, caplog):
 
     caplog.set_level(logging.DEBUG)
 
-    client = Client(durable=durable, exchange="exch")
+    client = Blocking(durable=durable, exchange="exch")
 
     client.publish({"a": 1}, "q")
 

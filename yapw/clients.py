@@ -7,17 +7,11 @@ For example:
 
    from yapw import clients
 
-   class Client(clients.Threaded, clients.Blocking, clients.Base):
+   class Client(clients.Threaded, clients.Blocking):
        pass
 
 The layers are:
 
-Base
-  For common logic, without interacting with RabbitMQ.
-
-  Available mixins:
-
-  -  :class:`~yapw.clients.Base`
 Connection
   Establish a connection to RabbitMQ and create a channel.
 
@@ -44,7 +38,7 @@ import signal
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from types import FrameType
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import pika
 import pika.exceptions
@@ -81,16 +75,72 @@ class Base:
     ``__safe__`` class attribute.
     """
 
-    __safe__ = ["format_routing_key"]
+    connection: Union[pika.BlockingConnection, pika.SelectConnection]
 
-    def __init__(self, *, routing_key_template: str = "{routing_key}", **kwargs: Any):
+    # The connection isn't "safe to use" but it can be "used safely" like in:
+    # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
+    __safe__ = ["connection", "exchange", "encode", "content_type", "delivery_mode", "format_routing_key"]
+
+    def __init__(
+        self,
+        *,
+        url: str = "amqp://127.0.0.1",
+        blocked_connection_timeout: float = 1800,
+        durable: bool = True,
+        exchange: str = "",
+        exchange_type: ExchangeType = ExchangeType.direct,
+        prefetch_count: int = 1,
+        encode: Encode = default_encode,
+        content_type: str = "application/json",
+        routing_key_template: str = "{exchange}_{routing_key}",
+        **kwargs: Any,
+    ):
         """
+        When publishing a message, by default, its body is encoded using :func:`yapw.util.default_encode`, and its
+        content type is set to "application/json". Use the ``encode`` and ``content_type`` keyword arguments to change
+        this. The ``encode`` must be a function that accepts ``(message, content_type)`` arguments and returns bytes.
+
+        :param url: the connection string (don't set a blocked_connection_timeout query string parameter)
+        :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
+        :param durable: whether to declare a durable exchange, declare durable queues, and publish persistent messages
+        :param exchange: the exchange name
+        :param exchange_type: the exchange type
+        :param prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
+        :param encode: the message bodies' encoder
+        :param content_type: the messages' content type
         :param routing_key_template:
             a `format string <https://docs.python.org/3/library/string.html#format-string-syntax>`__ that must contain
             the ``{routing_key}`` replacement field and that may contain other fields matching writable attributes
         """
+        #: The RabbitMQ connection parameters.
+        self.parameters: pika.URLParameters = pika.URLParameters(url)
+        self.parameters.blocked_connection_timeout = blocked_connection_timeout
+        #: Whether to declare a durable exchange, declare durable queues, and publish persistent messages.
+        self.durable: bool = durable
+        #: The exchange name.
+        self.exchange: str = exchange
+        #: The exchange type.
+        self.exchange_type: ExchangeType = exchange_type
+        #: The maximum number of unacknowledged messages per consumer.
+        self.prefetch_count: int = prefetch_count
+        #: The message bodies' encoder.
+        self.encode: Encode = encode
+        #: The messages' content type.
+        self.content_type: str = content_type
+        #: The messages' delivery mode.
+        self.delivery_mode = 2 if durable else 1
         #: The format string for the routing key.
         self.routing_key_template: str = routing_key_template
+
+    def declare_exchange_and_configure_prefetch(
+        self, channel: Union[pika.channel.Channel, pika.adapters.blocking_connection.BlockingChannel]
+    ) -> None:
+        """
+        Declare an exchange, unless using the default exchange, and set the prefetch count.
+        """
+        channel.basic_qos(prefetch_count=self.prefetch_count)
+        if self.exchange:
+            channel.exchange_declare(exchange=self.exchange, exchange_type=self.exchange_type, durable=self.durable)
 
     def format_routing_key(self, routing_key: str) -> str:
         """
@@ -100,6 +150,12 @@ class Base:
         :returns: the formatted routing key
         """
         return self.routing_key_template.format(routing_key=routing_key, **self.__dict__)
+
+    def close(self) -> None:
+        """
+        Close the connection.
+        """
+        self.connection.close()
 
     @property
     @functools.lru_cache(maxsize=None)
@@ -112,75 +168,24 @@ class Base:
         )
 
 
-class Blocking:
+class Blocking(Base):
     """
     Uses a blocking connection adapter while avoiding deadlocks due to
     `blocked connections <https://www.rabbitmq.com/connection-blocked.html>`__.
     """
 
-    # Attributes that this mixin expects from base classes.
-    format_routing_key: Callable[[str], str]
-
-    # The connection isn't "safe to use" but it can be "used safely" like in:
-    # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
-    __safe__ = ["connection", "exchange", "encode", "content_type", "delivery_mode"]
-
-    def __init__(
-        self,
-        *,
-        url: str = "amqp://127.0.0.1",
-        blocked_connection_timeout: float = 1800,
-        prefetch_count: int = 1,
-        durable: bool = True,
-        exchange: str = "",
-        exchange_type: ExchangeType = ExchangeType.direct,
-        encode: Encode = default_encode,
-        content_type: str = "application/json",
-        routing_key_template: str = "{exchange}_{routing_key}",
-        **kwargs: Any,
-    ):
+    def __init__(self, **kwargs: Any):
         """
         Connect to RabbitMQ, create a channel and declare an exchange, unless using the default exchange.
-
-        When publishing a message, by default, its body is encoded using :func:`yapw.util.default_encode`, and its
-        content type is set to "application/json". Use the ``encode`` and ``content_type`` keyword arguments to change
-        this. The ``encode`` must be a function that accepts ``(message, content_type)`` arguments and returns bytes.
-
-        :param url: the connection string (don't set a blocked_connection_timeout query string parameter)
-        :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
-        :param prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
-        :param durable: whether to declare a durable exchange, declare durable queues, and publish persistent messages
-        :param exchange: the exchange name
-        :param exchange_type: the exchange type
-        :param encode: the message bodies' encoder
-        :param content_type: the messages' content type
-        :param routing_key_template: see :meth:`~yapw.clients.Base.__init__`
         """
-        super().__init__(routing_key_template=routing_key_template, **kwargs)  # type: ignore # python/mypy#4335
-
-        parameters = pika.URLParameters(url)
-        parameters.blocked_connection_timeout = blocked_connection_timeout
-
-        #: Whether to declare a durable exchange, declare durable queues, and publish persistent messages.
-        self.durable = durable
-        #: The exchange name.
-        self.exchange: str = exchange
-        #: The message bodies' encoder.
-        self.encode: Encode = encode
-        #: The messages' content type.
-        self.content_type: str = content_type
-        #: #: The messages' delivery mode.
-        self.delivery_mode = 2 if durable else 1
+        super().__init__(**kwargs)
 
         #: The connection.
-        self.connection: pika.BlockingConnection = pika.BlockingConnection(parameters)
+        self.connection: pika.BlockingConnection = pika.BlockingConnection(self.parameters)
 
         #: The channel.
         self.channel: pika.adapters.blocking_connection.BlockingChannel = self.connection.channel()
-        self.channel.basic_qos(prefetch_count=prefetch_count)
-
-        if exchange:
-            self.channel.exchange_declare(exchange=exchange, exchange_type=exchange_type, durable=durable)
+        self.declare_exchange_and_configure_prefetch(self.channel)
 
     def declare_queue(
         self, queue: str, routing_keys: Optional[List[str]] = None, arguments: Optional[Dict[str, str]] = None
@@ -213,12 +218,6 @@ class Blocking:
 
         self.channel.basic_publish(**keywords)
         logger.debug(*basic_publish_debug_args(self.channel, message, keywords))
-
-    def close(self) -> None:
-        """
-        Close the connection.
-        """
-        self.connection.close()
 
 
 # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py

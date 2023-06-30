@@ -7,7 +7,14 @@ Changelog
 Changed
 ~~~~~~~
 
--  **BREAKING CHANGE:** Merge ``yapw.clients.Publisher`` into :class:`yapw.clients.Blocking`, because its methods are synchronous. Replace ``Durable`` and ``Transient`` with a ``durable`` keyword argument.
+**BREAKING CHANGES**
+
+-  Merge ``yapw.clients.Publisher`` into :class:`~yapw.clients.Blocking`, because its methods are synchronous.
+-  Move ``__init__`` arguments from mixins to the :class:`~yapw.clients.Base` class.
+-  Move the :meth:`yapw.clients.Base.close` method to the :class:`~yapw.clients.Base` class.
+-  Extract the :meth:`yapw.clients.Base.declare_exchange_and_configure_prefetch` method into the :class:`~yapw.clients.Base` class.
+-  Replace ``Durable`` and ``Transient`` with a ``durable`` keyword argument.
+-  :class:`~yapw.clients.Blocking` is a subclass of :class:`~yapw.clients.Base`.
 
 0.0.13 (2022-01-28)
 -------------------
