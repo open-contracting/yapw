@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from yapw.clients import Blocking, Threaded
+from yapw.clients import Blocking
 from yapw.decorators import discard, requeue
 from yapw.methods.blocking import ack, nack, publish
 
@@ -17,12 +17,8 @@ DELAY = 0.05
 RABBIT_URL = os.getenv("TEST_RABBIT_URL", "amqp://127.0.0.1")
 
 
-class Client(Threaded, Blocking):
-    pass
-
-
 def get_client(**kwargs):
-    return Client(durable=False, url=RABBIT_URL, exchange="yapw_test", **kwargs)
+    return Blocking(durable=False, url=RABBIT_URL, exchange="yapw_test", **kwargs)
 
 
 def encode(message):

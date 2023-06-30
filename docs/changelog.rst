@@ -9,12 +9,12 @@ Changed
 
 **BREAKING CHANGES**
 
--  Merge ``yapw.clients.Publisher`` into :class:`~yapw.clients.Blocking`, because its methods are synchronous.
+-  Use subclasses instead of mixins, to share logic between synchronous and asynchronous clients with less code.
+-  Merge ``yapw.clients.Publisher`` and ``yapw.clients.Threaded`` into :class:`~yapw.clients.Blocking`.
+-  Replace ``Durable`` and ``Transient`` with a ``durable`` keyword argument.
 -  Move ``__init__`` arguments from mixins to the :class:`~yapw.clients.Base` class.
 -  Move the :meth:`yapw.clients.Base.close` method to the :class:`~yapw.clients.Base` class.
 -  Extract the :meth:`yapw.clients.Base.declare_exchange_and_configure_prefetch` method into the :class:`~yapw.clients.Base` class.
--  Replace ``Durable`` and ``Transient`` with a ``durable`` keyword argument.
--  :class:`~yapw.clients.Blocking` is a subclass of :class:`~yapw.clients.Base`.
 
 0.0.13 (2022-01-28)
 -------------------

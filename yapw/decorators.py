@@ -78,7 +78,7 @@ def decorate(
 
     .. seealso::
 
-       :meth:`yapw.clients.Threaded.consume` for details on the consumer callback function signature.
+       :meth:`yapw.clients.Blocking.consume` for details on the consumer callback function signature.
     """
     logger.debug(
         "Received message %s with routing key %s and delivery tag %s", body, method.routing_key, method.delivery_tag

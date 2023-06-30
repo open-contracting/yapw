@@ -1,29 +1,5 @@
 """
-Mixins that can be combined to create a RabbitMQ client.
-
-For example:
-
-.. code-block:: python
-
-   from yapw import clients
-
-   class Client(clients.Threaded, clients.Blocking):
-       pass
-
-The layers are:
-
-Connection
-  Establish a connection to RabbitMQ and create a channel.
-
-  Available mixins:
-
-  -  :class:`~yapw.clients.Blocking`
-Consumer
-  Consume messages.
-
-  Available mixins:
-
-  -  :class:`~yapw.clients.Threaded`
+Classes for RabbitMQ clients.
 
 .. note::
 
@@ -35,10 +11,11 @@ from __future__ import annotations
 import functools
 import logging
 import signal
+import threading
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from types import FrameType
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import pika
 import pika.exceptions
@@ -68,17 +45,15 @@ def _on_message(
 
 class Base:
     """
-    Provides :meth:`~Base.format_routing_key`, which is used by all methods in other mixins that accept routing keys,
+    Provides :meth:`~Base.format_routing_key`, which is used by all methods in other classes that accept routing keys,
     in order to namespace the routing keys.
-
-    Other mixins should list attributes that can - and are expected to - be used safely in consumer callbacks in a
-    ``__safe__`` class attribute.
     """
 
     connection: Union[pika.BlockingConnection, pika.SelectConnection]
 
     # The connection isn't "safe to use" but it can be "used safely" like in:
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
+    #: Attributes that can - and are expected to - be used safely in consumer callbacks.
     __safe__ = ["connection", "exchange", "encode", "content_type", "delivery_mode", "format_routing_key"]
 
     def __init__(
@@ -90,12 +65,17 @@ class Base:
         exchange: str = "",
         exchange_type: ExchangeType = ExchangeType.direct,
         prefetch_count: int = 1,
+        decode: Decode = default_decode,
         encode: Encode = default_encode,
         content_type: str = "application/json",
         routing_key_template: str = "{exchange}_{routing_key}",
         **kwargs: Any,
     ):
         """
+        When consuming a message, by default, its body is decoded using :func:`yapw.decorators.default_decode`. Use the
+        ``decode`` keyword argument to change this. The ``decode`` must be a function that accepts ``(state, channel,
+        method, properties, body)`` arguments (like the consumer callback) and returns a decoded message.
+
         When publishing a message, by default, its body is encoded using :func:`yapw.util.default_encode`, and its
         content type is set to "application/json". Use the ``encode`` and ``content_type`` keyword arguments to change
         this. The ``encode`` must be a function that accepts ``(message, content_type)`` arguments and returns bytes.
@@ -106,6 +86,7 @@ class Base:
         :param exchange: the exchange name
         :param exchange_type: the exchange type
         :param prefetch_count: the maximum number of unacknowledged deliveries that are permitted on the channel
+        :param decode: the message body's decoder
         :param encode: the message bodies' encoder
         :param content_type: the messages' content type
         :param routing_key_template:
@@ -123,6 +104,8 @@ class Base:
         self.exchange_type: ExchangeType = exchange_type
         #: The maximum number of unacknowledged messages per consumer.
         self.prefetch_count: int = prefetch_count
+        #: The message bodies' decoder.
+        self.decode: Decode = decode
         #: The message bodies' encoder.
         self.encode: Encode = encode
         #: The messages' content type.
@@ -170,8 +153,8 @@ class Base:
 
 class Blocking(Base):
     """
-    Uses a blocking connection adapter while avoiding deadlocks due to
-    `blocked connections <https://www.rabbitmq.com/connection-blocked.html>`__.
+    Uses a `blocking connection adapter <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__ while
+    avoiding deadlocks due to `blocked connections <https://www.rabbitmq.com/connection-blocked.html>`__.
     """
 
     def __init__(self, **kwargs: Any):
@@ -219,36 +202,7 @@ class Blocking(Base):
         self.channel.basic_publish(**keywords)
         logger.debug(*basic_publish_debug_args(self.channel, message, keywords))
 
-
-# https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
-class Threaded:
-    """
-    Runs the consumer callback in separate threads.
-    """
-
-    # Attributes that this mixin expects from base classes.
-    format_routing_key: Callable[[str], str]
-    declare_queue: Callable[[str, Optional[List[str]], Optional[Dict[str, str]]], None]
-    connection: pika.BlockingConnection
-    channel: pika.adapters.blocking_connection.BlockingChannel
-
-    def __init__(self, decode: Decode = default_decode, **kwargs: Any):
-        """
-        Install signal handlers to stop consuming messages, wait for threads to terminate, and close the connection.
-
-        When consuming a message, by default, its body is decoded using :func:`yapw.decorators.default_decode`. Use the
-        ``decode`` keyword argument to change this. The ``decode`` must be a function that accepts ``(state, channel,
-        method, properties, body)`` arguments (like the consumer callback) and returns a decoded message.
-
-        :param decode: the message body's decoder
-        """
-        super().__init__(**kwargs)
-
-        #: The message body's decoder.
-        self.decode: Decode = decode
-
-        install_signal_handlers(self._on_shutdown)
-
+    # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
     def consume(
         self,
         callback: ConsumerCallback,
@@ -260,6 +214,9 @@ class Threaded:
         """
         Declare a queue, bind it to the exchange with the routing keys, and start consuming messages from that queue.
         If no routing keys are provided, the queue is bound to the exchange using its name as the routing key.
+
+        Run the consumer callback in separate threads. If the client was instantiated in the main thread, install
+        signal handlers to stop consuming messages, wait for threads to terminate, and close the connection.
 
         The consumer callback must be a function that accepts ``(state, channel, method, properties, body)`` arguments,
         all but the first of which are the same as Pika's ``basic_consume``. The ``state`` argument is needed to pass
@@ -277,6 +234,9 @@ class Threaded:
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
         klass = namedtuple("State", self.__getsafe__)  # type: ignore # python/mypy#848 "This just never will happen"
         state = klass(**{attr: getattr(self, attr) for attr in self.__getsafe__})  # type: ignore
+
+        if threading.current_thread() is threading.main_thread():
+            install_signal_handlers(self._on_shutdown)
 
         executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{queue}")
         on_message_callback = functools.partial(_on_message, args=(executor, decorator, self.decode, callback, state))

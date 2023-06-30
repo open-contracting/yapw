@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-class Client(clients.Threaded, clients.Blocking):
+class Client(clients.Blocking):
     pass
 
 

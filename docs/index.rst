@@ -14,39 +14,22 @@ Yet Another Pika Wrapper |release|
 Configure a RabbitMQ client
 ---------------------------
 
-Create client classes, by layering in :doc:`mixins<api/clients>`:
+Import a client class:
 
 .. code-block:: python
 
-   from yapw import clients
-
-
-   class Consumer(clients.Threaded, clients.Blocking):
-       pass
-
-
-   class Publisher(clients.Blocking):
-       pass
-
-Each mixing contributes features, such that a client will:
-
--  :class:`~yapw.clients.Blocking`: Use `pika.BlockingConnection <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__, while avoiding deadlocks by setting ``blocked_connection_timeout`` to a sensible default. Declare an exchange.
--  :class:`~yapw.clients.Threaded`: Run the consumer callback in separate threads when consuming messages. Install handlers for the SIGTERM, SIGINT and user-defined signals to stop consuming messages, wait for threads to terminate, and close the connection.
+   from yapw.clients import Blocking
 
 Publish messages outside a consumer callback
 --------------------------------------------
 
 .. code-block:: python
 
-   publisher = Publisher(url="amqp://user:pass@127.0.0.1", exchange="myexchange")
+   publisher = Blocking(url="amqp://user:pass@127.0.0.1", exchange="myexchange")
    publisher.publish({"message": "value"}, routing_key="messages")
    publisher.close()
 
 The routing key is namespaced by the exchange name, to make it "myexchange_messages".
-
-.. note::
-
-   The ``Threaded`` mixin installs :ref:`signal handlers<signal-handling>`, which can only be installed in the main thread. The ``Publisher`` class might be instantiated in a non-main thread (like in a web request); therefore, it doesn't inherit from the ``Threaded`` mixin.
 
 Consume messages
 ----------------
@@ -77,9 +60,11 @@ yapw implements a pattern whereby the consumer declares and binds a queue. By de
 
    consumer.consume(callback, queue="messages", routing_keys=["a", "b"], decorator=discard)
 
+yapw uses a thread pool to run the consumer callback in separate threads.
+
 .. seealso::
 
-   :meth:`yapw.clients.Threaded.consume` for details on the consumer callback function signature.
+   :meth:`yapw.clients.Blocking.consume` for details on the consumer callback function signature.
 
 Channel methods
 ~~~~~~~~~~~~~~~
@@ -93,9 +78,9 @@ The :func:`~yapw.methods.blocking.ack`, :func:`~yapw.methods.blocking.nack` and 
 Encoding and decoding
 ~~~~~~~~~~~~~~~~~~~~~
 
-By default, when publishing messages, the :class:`~yapw.clients.Blocking` mixin uses a content type of "application/json" and encodes the message body with the :func:`~yapw.util.default_encode` function, which serializes to JSON-formatted bytes when the content type is "application/json".
+By default, when publishing messages, all classes use a content type of "application/json" and encode the message body with the :func:`~yapw.util.default_encode` function, which serializes to JSON-formatted bytes when the content type is "application/json".
 
-Similarly, when consuming messages, the :class:`yapw.clients.Threaded` mixin uses the :func:`~yapw.decorators.default_decode` function, which deserializes from JSON-formatted bytes when the consumed message's content type is "application/json".
+Similarly, when consuming messages, all classes use the :func:`~yapw.decorators.default_decode` function, which deserializes from JSON-formatted bytes when the consumed message's content type is "application/json".
 
 You can change this behavior. For example, change the bodies of the ``encode`` and ``decode`` functions below:
 
@@ -123,22 +108,22 @@ You can change this behavior. For example, change the bodies of the ``encode`` a
 Error handling
 ~~~~~~~~~~~~~~
 
-The ``decorator`` keyword argument to the :meth:`~yapw.clients.Threaded.consume` method is a function that wraps the consumer callback (the first argument to the ``consume`` method). This function can be used to:
+The ``decorator`` keyword argument to the :meth:`~yapw.clients.Blocking.consume` method is a function that wraps the consumer callback (the first argument to the ``consume`` method). This function can be used to:
 
 -  Offer conveniences to the consumer callback, like decoding the message body
 -  Handle unexpected errors from the consumer callback
 
 When using `consumer prefetch <https://www.rabbitmq.com/consumer-prefetch.html>`__, if a message is not ack'd or nack'd, then `RabbitMQ stops delivering messages <https://www.rabbitmq.com/confirms.html#channel-qos-prefetch>`__. As such, it's important to handle unexpected errors by either acknowledging the message or halting the process. Otherwise, the process will stall.
 
-The default decorator is the :func:`yapw.decorators.halt` function, which sends the SIGUSR1 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Threaded` mixin handles this signal by shutting down gracefully. See the :doc:`available decorators<api/decorators>` and the rationale for the default setting.
+The default decorator is the :func:`yapw.decorators.halt` function, which sends the SIGUSR1 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Blocking` class handles this signal by shutting down gracefully. See the :doc:`available decorators<api/decorators>` and the rationale for the default setting.
 
-All decorators also decode the message body, which can be configured as above. If an exception occurs while decoding, the decorator sends the SIGUSR2 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Threaded` mixin handles this signal by shutting down gracefully.
-
-.. _signal-handling:
+All decorators also decode the message body, which can be configured as above. If an exception occurs while decoding, the decorator sends the SIGUSR2 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Blocking` class handles this signal by shutting down gracefully.
 
 Signal handling
 ~~~~~~~~~~~~~~~
 
-The :class:`~yapw.clients.Threaded` mixin shuts down gracefully if it receives the ``SIGTERM`` (system exit), ``SIGINT`` (keyboard interrupt) or user-defined signals described above. It stops consuming messages, waits for threads to terminate, and closes the RabbitMQ connection.
+The :class:`~yapw.clients.Blocking` class shuts down gracefully if it receives the ``SIGTERM`` (system exit), ``SIGINT`` (keyboard interrupt) or user-defined signals described above. It stops consuming messages, waits for threads to terminate, and closes the RabbitMQ connection.
+
+The ``Blocking`` class installs signal handlers only if it is instantiated in the main thread, as these can only be installed in the main thread. An example of a non-main thread is a web request.
 
 Copyright (c) 2021 Open Contracting Partnership, released under the BSD license
