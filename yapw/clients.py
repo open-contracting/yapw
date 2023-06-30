@@ -125,6 +125,50 @@ class Base:
         if self.exchange:
             channel.exchange_declare(exchange=self.exchange, exchange_type=self.exchange_type, durable=self.durable)
 
+    def declare_queue(
+        self,
+        channel: Union[pika.channel.Channel, pika.adapters.blocking_connection.BlockingChannel],
+        queue: str,
+        routing_keys: Optional[List[str]] = None,
+        arguments: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """
+        Declare a queue, and bind it to the exchange with the routing keys. If no routing keys are provided, the queue
+        is bound to the exchange using its name as the routing key.
+
+        :param channel: the current channel
+        :param queue: the queue's name
+        :param routing_keys: the queue's routing keys
+        :param arguments: any custom key-value arguments
+        """
+        if not routing_keys:
+            routing_keys = [queue]
+
+        formatted = self.format_routing_key(queue)
+        channel.queue_declare(queue=formatted, durable=self.durable, arguments=arguments)
+
+        for routing_key in routing_keys:
+            routing_key = self.format_routing_key(routing_key)
+            channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=routing_key)
+
+    def publish(
+        self,
+        channel: Union[pika.channel.Channel, pika.adapters.blocking_connection.BlockingChannel],
+        message: Any,
+        routing_key: str,
+    ) -> None:
+        """
+        Publish from the main thread, with the provided message and routing key, and with the configured exchange.
+
+        :param channel: the current channel
+        :param message: a decoded message
+        :param routing_key: the routing key
+        """
+        keywords = basic_publish_kwargs(self, message, routing_key)
+
+        channel.basic_publish(**keywords)
+        logger.debug(*basic_publish_debug_args(channel, message, keywords))
+
     def format_routing_key(self, routing_key: str) -> str:
         """
         Format the routing key.
@@ -170,37 +214,18 @@ class Blocking(Base):
         self.channel: pika.adapters.blocking_connection.BlockingChannel = self.connection.channel()
         self.declare_exchange_and_configure_prefetch(self.channel)
 
-    def declare_queue(
-        self, queue: str, routing_keys: Optional[List[str]] = None, arguments: Optional[Dict[str, str]] = None
-    ) -> None:
+    def declare_queue(self, *args: Any, **kwargs: Any) -> None:
         """
         Declare a queue, and bind it to the exchange with the routing keys. If no routing keys are provided, the queue
         is bound to the exchange using its name as the routing key.
-
-        :param queue: the queue's name
-        :param routing_keys: the queue's routing keys
         """
-        if not routing_keys:
-            routing_keys = [queue]
+        super().declare_queue(self.channel, *args, **kwargs)
 
-        formatted = self.format_routing_key(queue)
-        self.channel.queue_declare(queue=formatted, durable=self.durable, arguments=arguments)
-
-        for routing_key in routing_keys:
-            routing_key = self.format_routing_key(routing_key)
-            self.channel.queue_bind(exchange=self.exchange, queue=formatted, routing_key=routing_key)
-
-    def publish(self, message: Any, routing_key: str) -> None:
+    def publish(self, *args: Any, **kwargs: Any) -> None:
         """
         Publish from the main thread, with the provided message and routing key, and with the configured exchange.
-
-        :param message: a decoded message
-        :param routing_key: the routing key
         """
-        keywords = basic_publish_kwargs(self, message, routing_key)
-
-        self.channel.basic_publish(**keywords)
-        logger.debug(*basic_publish_debug_args(self.channel, message, keywords))
+        super().publish(self.channel, *args, **kwargs)
 
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
     def consume(

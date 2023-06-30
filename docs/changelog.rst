@@ -14,6 +14,7 @@ Changed
 -  Replace ``Durable`` and ``Transient`` with a ``durable`` keyword argument.
 -  Move ``__init__`` arguments from mixins to the :class:`~yapw.clients.Base` class.
 -  Move the :meth:`yapw.clients.Base.close` method to the :class:`~yapw.clients.Base` class.
+-  Copy the :meth:`yapw.clients.Blocking.declare_queue` and :meth:`~yapw.clients.Blocking.publish` methods to the :class:`~yapw.clients.Base` class.
 -  Extract the :meth:`yapw.clients.Base.declare_exchange_and_configure_prefetch` method into the :class:`~yapw.clients.Base` class.
 
 0.0.13 (2022-01-28)

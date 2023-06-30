@@ -14,7 +14,7 @@ except ImportError:
 from yapw.types import PublishKeywords, State
 
 if TYPE_CHECKING:
-    from yapw.clients import Blocking
+    from yapw.clients import Base
 
 
 def json_dumps(message: Any) -> bytes:
@@ -53,7 +53,7 @@ def default_encode(message: Any, content_type: str) -> bytes:
     return pickle.dumps(message)
 
 
-def basic_publish_kwargs(state: Union["Blocking", State], message: Any, routing_key: str) -> PublishKeywords:
+def basic_publish_kwargs(state: Union["Base", State], message: Any, routing_key: str) -> PublishKeywords:
     """
     Prepare keyword arguments for ``basic_publish``.
 
