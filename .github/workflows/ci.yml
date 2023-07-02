@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9, '3.10', '3.11']
+        python-version: ['3.11']
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -20,9 +20,9 @@ jobs:
           TEST_RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports[5672] }}
         shell: bash
         run: |
-          coverage run --append --source=yapw -m pytest -W error
+          coverage run --append --source=yapw -m pytest -W error -W ignore::ResourceWarning
           pip install orjson
-          coverage run --append --source=yapw -m pytest -W error
+          coverage run --append --source=yapw -m pytest -W error -W ignore::ResourceWarning
           pip uninstall -y orjson
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

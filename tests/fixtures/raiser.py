@@ -4,16 +4,13 @@ This script can be used to test error handling.
 """
 
 import logging
+import sys
 
-from yapw import clients
+from yapw.clients import AsyncConsumer, Blocking
 from yapw.decorators import requeue
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-
-class Client(clients.Threaded, clients.Transient, clients.Blocking, clients.Base):
-    pass
 
 
 def callback(state, channel, method, properties, body):
@@ -21,8 +18,16 @@ def callback(state, channel, method, properties, body):
 
 
 def main():
-    client = Client(exchange="yapw_development")
-    client.consume(callback, "raise", decorator=requeue)
+    kwargs = {"durable": False, "exchange": "yapw_development"}
+    consumer_kwargs = {"callback": callback, "queue": "raise", "decorator": requeue}
+    if len(sys.argv) > 1 and sys.argv[1] == "Blocking":
+        print("Blocking consumer")
+        client = Blocking(**kwargs)
+        client.consume(**consumer_kwargs)
+    else:
+        print("Asynchronous consumer")
+        client = AsyncConsumer(**kwargs, **consumer_kwargs)
+        client.start()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 # Copied and adapted from https://github.com/scrapy/scrapy/blob/master/scrapy/utils/ossignal.py
 import signal
+import threading
+from collections.abc import Callable
 from types import FrameType
-from typing import Callable, Optional, Union
 
 signal_names = {}
 for signame in dir(signal):
@@ -11,13 +12,14 @@ for signame in dir(signal):
             signal_names[signum] = signame
 
 
-def install_signal_handlers(function: Union[Callable[[int, Optional[FrameType]], None], signal.Handlers]) -> None:
+def install_signal_handlers(function: Callable[[int, FrameType | None], None] | signal.Handlers) -> None:
     """
-    Installs handlers for the SIGTERM, SIGINT, SIGUSR1 and SIGUSR2 signals.
+    Installs handlers for the SIGTERM and SIGINT signals.
 
     :param function: the handler
     """
-    signal.signal(signal.SIGTERM, function)
-    signal.signal(signal.SIGINT, function)
-    signal.signal(signal.SIGUSR1, function)
-    signal.signal(signal.SIGUSR2, function)
+    # Only the main thread is allowed to set a signal handler.
+    # https://docs.python.org/3/library/signal.html
+    if threading.current_thread() == threading.main_thread():
+        signal.signal(signal.SIGTERM, function)
+        signal.signal(signal.SIGINT, function)

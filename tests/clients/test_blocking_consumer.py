@@ -1,108 +1,23 @@
 import functools
-import json
 import logging
-import os
 import signal
-import time
 
 import pytest
 
-from yapw.clients import Base, Blocking, Threaded, Transient
+from tests import DELAY, ack_warner, blocking, decode, encode, kill, nack_warner, raiser, sleeper, writer
 from yapw.decorators import discard, requeue
-from yapw.methods.blocking import ack, nack, publish
 
 logger = logging.getLogger(__name__)
-
-DELAY = 0.05
-RABBIT_URL = os.getenv("TEST_RABBIT_URL", "amqp://127.0.0.1")
-
-
-class Client(Threaded, Transient, Blocking, Base):
-    pass
-
-
-def get_client(**kwargs):
-    return Client(url=RABBIT_URL, exchange="yapw_test", **kwargs)
-
-
-def encode(message):
-    if not isinstance(message, bytes):
-        return json.dumps(message, separators=(",", ":")).encode()
-    return message
-
-
-def kill(signum):
-    os.kill(os.getpid(), signum)
-    # The signal should be handled once.
-    os.kill(os.getpid(), signum)
-
-
-@pytest.fixture(params=[({}, {"message": "value"}), ({"content_type": "application/octet-stream"}, b"message value")])
-def message(request):
-    kwargs, body = request.param
-
-    publisher = get_client(**kwargs)
-    publisher.declare_queue("q")
-    publisher.publish(body, "q")
-    yield body
-    # Purge the queue, instead of waiting for a restart.
-    publisher.channel.queue_purge("yapw_test_q")
-    publisher.close()
-
-
-@pytest.fixture
-def short_message(request):
-    body = 1
-
-    publisher = get_client()
-    publisher.declare_queue("q")
-    publisher.publish(body, "q")
-    yield body
-    # Purge the queue, instead of waiting for a restart.
-    publisher.channel.queue_purge("yapw_test_q")
-    publisher.close()
-
-
-# Consumer callbacks.
-def sleeper(state, channel, method, properties, body):
-    logger.info("Sleep")
-    time.sleep(DELAY * 2)
-    logger.info("Wake!")
-    ack(state, channel, method.delivery_tag)
-
-
-def raiser(state, channel, method, properties, body):
-    raise Exception("message")
-
-
-def ack_warner(state, channel, method, properties, body):
-    logger.warning(body)
-    ack(state, channel, method.delivery_tag)
-
-
-def nack_warner(state, channel, method, properties, body):
-    logger.warning(body)
-    nack(state, channel, method.delivery_tag)
-
-
-def writer(state, channel, method, properties, body):
-    publish(state, channel, {"message": "value"}, "n")
-    ack(state, channel, method.delivery_tag)
-
-
-# Decoders
-def decode(index, body, content_type):
-    return body.decode()[index]
 
 
 @pytest.mark.parametrize(
     "signum,signame",
-    [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM"), (signal.SIGUSR1, "SIGUSR1"), (signal.SIGUSR2, "SIGUSR2")],
+    [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM")],
 )
 def test_shutdown(signum, signame, message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = get_client()
+    consumer = blocking()
     consumer.connection.call_later(DELAY, functools.partial(kill, signum))
     consumer.consume(sleeper, "q")
 
@@ -118,7 +33,7 @@ def test_shutdown(signum, signame, message, caplog):
 
 
 def test_decode_valid(short_message, caplog):
-    consumer = get_client(decode=functools.partial(decode, 0))
+    consumer = blocking(decode=functools.partial(decode, 0))
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(ack_warner, "q")
 
@@ -126,65 +41,61 @@ def test_decode_valid(short_message, caplog):
     assert consumer.connection.is_closed
 
     assert len(caplog.records) == 1
-    assert caplog.records[-1].levelname == "WARNING"
-    assert caplog.records[-1].message == "1"
+    assert [(r.levelname, r.message) for r in caplog.records] == [("WARNING", "1")]
 
 
 def test_decode_invalid(short_message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = get_client(decode=functools.partial(decode, 10))
+    consumer = blocking(decode=functools.partial(decode, 10))
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(ack_warner, "q")
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 2
+    assert len(caplog.records) == 1
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"{encode(short_message)} can't be decoded, sending SIGUSR2", False),
-        ("INFO", "Received SIGUSR2, shutting down gracefully", True),
+        ("ERROR", f"{encode(short_message)} can't be decoded, shutting down gracefully", False),
     ]
 
 
 def test_decode_raiser(message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = get_client(decode=raiser)
+    consumer = blocking(decode=raiser)
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(ack_warner, "q")
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 2
+    assert len(caplog.records) == 1
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"{encode(message)} can't be decoded, sending SIGUSR2", False),
-        ("INFO", "Received SIGUSR2, shutting down gracefully", True),
+        ("ERROR", f"{encode(message)} can't be decoded, shutting down gracefully", False),
     ]
 
 
 def test_halt(message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = get_client()
+    consumer = blocking()
     consumer.connection.call_later(30, functools.partial(kill, signal.SIGINT))  # in case not halted
     consumer.consume(raiser, "q")
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 2
+    assert len(caplog.records) == 1
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"Unhandled exception when consuming {encode(message)}, sending SIGUSR1", False),
-        ("INFO", "Received SIGUSR1, shutting down gracefully", True),
+        ("ERROR", f"Unhandled exception when consuming {encode(message)}, shutting down gracefully", False),
     ]
 
 
 def test_discard(message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = get_client()
+    consumer = blocking()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(raiser, "q", decorator=discard)
 
@@ -201,7 +112,7 @@ def test_discard(message, caplog):
 def test_requeue(message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = get_client()
+    consumer = blocking()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(raiser, "q", decorator=requeue)
 
@@ -219,7 +130,7 @@ def test_requeue(message, caplog):
 def test_publish(message, caplog):
     caplog.set_level(logging.DEBUG)
 
-    consumer = get_client()
+    consumer = blocking()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(writer, "q")
 
@@ -240,14 +151,14 @@ def test_publish(message, caplog):
 
 
 def test_consume_declares_queue(caplog):
-    declarer = get_client()
+    declarer = blocking()
     declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     declarer.consume(raiser, "q")
 
-    publisher = get_client()
+    publisher = blocking()
     publisher.publish({"message": "value"}, "q")
 
-    consumer = get_client()
+    consumer = blocking()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(nack_warner, "q")
 
@@ -262,15 +173,15 @@ def test_consume_declares_queue(caplog):
 
 
 def test_consume_declares_queue_routing_keys(caplog):
-    declarer = get_client()
+    declarer = blocking()
     declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     declarer.consume(raiser, "q", ["r", "k"])
 
-    publisher = get_client()
+    publisher = blocking()
     publisher.publish({"message": "r"}, "r")
     publisher.publish({"message": "k"}, "k")
 
-    consumer = get_client()
+    consumer = blocking()
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(ack_warner, "q", ["r", "k"])
 
