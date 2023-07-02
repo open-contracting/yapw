@@ -14,7 +14,7 @@ import signal
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from types import FrameType
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import pika
 import pika.exceptions
@@ -165,15 +165,16 @@ class Base(Generic[T]):
         logger.debug("Consuming messages on channel %s from queue %s", self.channel.channel_number, queue_name)
 
     # https://www.rabbitmq.com/consumer-cancel.html
-    def channel_cancel(self, method: Any) -> Any:
+    def channel_cancel(self, method: Any) -> Any:  # different method types for each channel class
         """
         Close the channel. (RabbitMQ uses basic.cancel if a channel is consuming a queue and the queue is deleted.)
         """
         logger.error("Consumer was cancelled by broker, stopping: %r", method)
-        # For a blocking connection, use stop_consuming() to cause the else-branch in consume() to run.
         if hasattr(self.channel, "stop_consuming"):
             self.channel.stop_consuming()
         else:
+            if TYPE_CHECKING:
+                assert isinstance(self.connection, pika.SelectConnection)
             # Keep channel open until threads terminate. Ensure the channel closes after any thread-safe callbacks.
             self.executor.shutdown(cancel_futures=True)
             self.connection.ioloop.call_later(0, self.channel.close)
@@ -283,7 +284,7 @@ class Blocking(Base[pika.BlockingConnection]):
 
         self.start_consumer(callback, decorator, queue_name)
 
-        # The callback call stop_consuming(), so install after start_consumer() sets consumer_tag.
+        # The callback calls stop_consuming(), so install it after start_consumer() sets consumer_tag.
         install_signal_handlers(self._on_signal)
 
         try:
@@ -422,7 +423,7 @@ class Async(Base[pika.SelectConnection]):
         self.channel.add_on_close_callback(self.channel_close)
         channel.basic_qos(prefetch_count=self.prefetch_count, callback=self.channel_qosok)
 
-    def channel_cancelok(self, method: Any) -> Any:
+    def channel_cancelok(self, method: pika.frame.Method[pika.spec.Basic.CancelOk]) -> Any:
         """
         Close the channel, once the consumer is cancelled. The :meth:`~yapw.clients.Async.channel_close` callback
         closes the connection.
@@ -443,7 +444,7 @@ class Async(Base[pika.SelectConnection]):
             self.executor.shutdown(wait=False, cancel_futures=True)
             self.connection.close()
 
-    def channel_qosok(self, method: Any) -> None:
+    def channel_qosok(self, method: pika.frame.Method[pika.spec.Basic.QosOk]) -> None:
         """Declare the exchange, once the prefetch count is set."""
         if self.exchange:
             logger.debug(
@@ -459,9 +460,13 @@ class Async(Base[pika.SelectConnection]):
                 callback=self.exchange_declareok,
             )
         else:
-            self.exchange_declareok(None)
+            self.exchange_ready()
 
-    def exchange_declareok(self, method: Any) -> None:
+    def exchange_declareok(self, method: pika.frame.Method[pika.spec.Exchange.DeclareOk]) -> None:
+        """Perform user-specified actions, once the exchange is declared."""
+        self.exchange_ready()
+
+    def exchange_ready(self) -> None:
         """Override this method in subclasses."""
         raise NotImplementedError
 
@@ -508,21 +513,24 @@ class AsyncConsumer(Async):
         #: The decorator of the consumer callback.
         self.decorator = decorator
 
-    def exchange_declareok(self, method: Any) -> None:
+    def exchange_ready(self) -> None:
         """Declare the queue, once the exchange is declared."""
         queue_name = self.format_routing_key(self.queue)
         cb = functools.partial(self.queue_declareok, queue_name=queue_name)
         self.channel.queue_declare(queue=queue_name, durable=self.durable, arguments=self.arguments, callback=cb)
 
-    def queue_declareok(self, method: Any, queue_name: str) -> None:
+    def queue_declareok(self, method: pika.frame.Method[pika.spec.Queue.DeclareOk], queue_name: str) -> None:
         """Bind the queue to the first routing key, once the queue is declared."""
-        self.queue_bindok(None, queue_name, 0)
+        self._bind_queue(queue_name, 0)
 
-    def queue_bindok(self, method: Any, queue_name: str, index: int) -> None:
+    def queue_bindok(self, method: pika.frame.Method[pika.spec.Queue.BindOk], queue_name: str, index: int) -> None:
         """Bind the queue to the remaining routing keys, or start consuming if all routing keys bound."""
         if index < len(self.routing_keys):
-            routing_key = self.format_routing_key(self.routing_keys[index])
-            cb = functools.partial(self.queue_bindok, queue_name=queue_name, index=index + 1)
-            self.channel.queue_bind(queue=queue_name, exchange=self.exchange, routing_key=routing_key, callback=cb)
+            self._bind_queue(queue_name, index)
         else:
             self.start_consumer(self.callback, self.decorator, queue_name)
+
+    def _bind_queue(self, queue_name: str, index: int) -> None:
+        routing_key = self.format_routing_key(self.routing_keys[index])
+        cb = functools.partial(self.queue_bindok, queue_name=queue_name, index=index + 1)
+        self.channel.queue_bind(queue=queue_name, exchange=self.exchange, routing_key=routing_key, callback=cb)
