@@ -44,6 +44,9 @@ def test_connection_open_error(short_reconnect_delay, caplog):
     client.stopping = True
     client.start()
 
+    # Channel never opened.
+    assert client.connection.is_closed
+
     assert len(caplog.records) == 1
     assert [(r.levelname, r.message) for r in caplog.records] == [("ERROR", "Connection failed, retrying in 1s: ")]
 
@@ -58,7 +61,8 @@ def test_exchangeok_default(short_timer, caplog):
     client = Client(durable=False, url=RABBIT_URL)
     client.start()
 
-    assert client.stopping is True
+    assert client.channel.is_closed
+    assert client.connection.is_closed
 
     assert len(caplog.records) == 3
     assert [(r.levelname, r.message) for r in caplog.records] == [
@@ -79,7 +83,8 @@ def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
     client = Client(durable=False, url=RABBIT_URL, exchange="yapw_test", exchange_type=exchange_type)
     client.start()
 
-    assert client.stopping is True
+    assert client.channel.is_closed
+    assert client.connection.is_closed
 
     assert len(caplog.records) == 3
     assert [(r.levelname, r.message) for r in caplog.records] == [
