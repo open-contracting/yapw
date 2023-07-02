@@ -13,11 +13,9 @@ for signame in dir(signal):
 
 def install_signal_handlers(function: Callable[[int, FrameType | None], None] | signal.Handlers) -> None:
     """
-    Installs handlers for the SIGTERM, SIGINT, SIGUSR1 and SIGUSR2 signals.
+    Installs handlers for the SIGTERM and SIGINT signals.
 
     :param function: the handler
     """
     signal.signal(signal.SIGTERM, function)
     signal.signal(signal.SIGINT, function)
-    signal.signal(signal.SIGUSR1, function)
-    signal.signal(signal.SIGUSR2, function)

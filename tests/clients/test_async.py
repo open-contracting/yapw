@@ -52,7 +52,7 @@ def test_exchangeok_default(short_timer, caplog):
     caplog.set_level(logging.DEBUG)
 
     class Client(Async):
-        def exchange_declareok(self, method):
+        def exchange_ready(self):
             logger.info("stop")
 
     client = Client(durable=False, url=RABBIT_URL)
@@ -73,7 +73,7 @@ def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
     caplog.set_level(logging.DEBUG)
 
     class Client(Async):
-        def exchange_declareok(self, method):
+        def exchange_ready(self):
             pass
 
     client = Client(durable=False, url=RABBIT_URL, exchange="yapw_test", exchange_type=exchange_type)

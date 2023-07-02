@@ -7,7 +7,7 @@ from yapw.clients import Async
 # Use this in tests that terminate naturally (e.g. due to an exception).
 @pytest.fixture
 def timer(request):
-    with timed(5):
+    with timed(30):
         yield
 
 

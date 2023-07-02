@@ -61,12 +61,7 @@ def _channel_method_from_thread(
 ) -> None:
     if connection.is_open:
         cb = functools.partial(_channel_method_from_main, channel, method, *args, **kwargs)
-        # One branch per adapter.
-        if hasattr(connection, "ioloop"):
-            caller = connection.ioloop
-        else:
-            caller = connection
-        caller.add_callback_threadsafe(cb)
+        add_callback_threadsafe(connection, cb)
     else:
         logger.error("Can't %s as connection is closed or closing", method)
 
@@ -76,3 +71,15 @@ def _channel_method_from_main(channel: pika.channel.Channel, method: str, *args:
         getattr(channel, f"basic_{method}")(*args, **kwargs)
     else:
         logger.error("Can't %s as channel is closed or closing", method)
+
+
+def add_callback_threadsafe(connection: Any, callback: Any) -> None:
+    """
+    Interact with Pika from another thread.
+    """
+    # One branch per adapter.
+    if hasattr(connection, "ioloop"):
+        caller = connection.ioloop
+    else:
+        caller = connection
+    caller.add_callback_threadsafe(callback)

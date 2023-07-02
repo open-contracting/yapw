@@ -62,10 +62,10 @@ class Base(Generic[T]):
     #: The channel.
     channel: pika.channel.Channel | pika.adapters.blocking_connection.BlockingChannel
 
-    # The connection isn't "safe to use" but it can be "used safely" like in:
+    # `connection` and `interrupt` aren't "safe to use" but can be "used safely" like in:
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
     #: Attributes that can - and are expected to - be used safely in consumer callbacks.
-    __safe__ = ["connection", "exchange", "encode", "content_type", "delivery_mode", "format_routing_key"]
+    __safe__ = ["connection", "interrupt", "exchange", "encode", "content_type", "delivery_mode", "format_routing_key"]
 
     def __init__(
         self,
@@ -173,7 +173,7 @@ class Base(Generic[T]):
         if hasattr(self.channel, "stop_consuming"):
             self.channel.stop_consuming()
         else:
-            if TYPE_CHECKING:
+            if TYPE_CHECKING:  # can't use TypeGuard, as first branch uses channel and this branch uses connection
                 assert isinstance(self.connection, pika.SelectConnection)
             # Keep channel open until threads terminate. Ensure the channel closes after any thread-safe callbacks.
             self.executor.shutdown(cancel_futures=True)
@@ -292,7 +292,7 @@ class Blocking(Base[pika.BlockingConnection]):
         finally:
             # Keep channel open until threads terminate.
             self.executor.shutdown(cancel_futures=True)
-            self.channel.close()
+            self.connection.close()
 
     def close(self) -> None:
         """

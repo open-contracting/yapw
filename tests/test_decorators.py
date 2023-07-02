@@ -1,5 +1,4 @@
 import logging
-import signal
 from collections import namedtuple
 from unittest.mock import Mock, patch
 
@@ -85,22 +84,19 @@ def test_decode_bytes(nack, caplog):
 def test_decode_invalid(caplog):
     caplog.set_level(logging.DEBUG)
 
-    function = Mock()
-    signal.signal(signal.SIGUSR2, function)
-
+    state = Mock()
     method = Deliver(1, False, "key")
     properties = BasicProperties("application/json")
 
-    discard(default_decode, passes, "state", "channel", method, properties, b"invalid")
+    discard(default_decode, passes, state, "channel", method, properties, b"invalid")
 
-    function.assert_called_once()
-    assert function.call_args[0][0] == signal.SIGUSR2
+    state.connection.ioloop.add_callback_threadsafe.assert_called_once_with(state.interrupt)
 
     assert len(caplog.records) == 2
     assert caplog.records[0].levelname == "DEBUG"
     assert caplog.records[0].message == "Received message b'invalid' with routing key key and delivery tag 1"
     assert caplog.records[-1].levelname == "ERROR"
-    assert caplog.records[-1].message == "b'invalid' can't be decoded, sending SIGUSR2"
+    assert caplog.records[-1].message == "b'invalid' can't be decoded, shutting down gracefully"
     assert caplog.records[-1].exc_info
 
 

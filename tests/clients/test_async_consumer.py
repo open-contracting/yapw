@@ -56,7 +56,7 @@ def test_init_kwargs(connection):
 
 @pytest.mark.parametrize(
     "signum,signame",
-    [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM"), (signal.SIGUSR1, "SIGUSR1"), (signal.SIGUSR2, "SIGUSR2")],
+    [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM")],
 )
 def test_shutdown(signum, signame, message, caplog):
     caplog.set_level(logging.INFO)
@@ -93,6 +93,8 @@ def test_decode_valid(short_message, short_timer, caplog):
 
 
 def test_decode_invalid(short_message, timer, caplog):
+    caplog.set_level(logging.INFO)
+
     consumer = async_consumer(callback=ack_warner, queue="q", decode=functools.partial(decode, 10))  # IndexError
     consumer.start()
 
@@ -101,12 +103,14 @@ def test_decode_invalid(short_message, timer, caplog):
 
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"{encode(short_message)} can't be decoded, sending SIGUSR2", False),
+        ("ERROR", f"{encode(short_message)} can't be decoded, shutting down gracefully", False),
         ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
     ]
 
 
 def test_decode_raiser(message, timer, caplog):
+    caplog.set_level(logging.INFO)
+
     consumer = async_consumer(callback=ack_warner, queue="q", decode=raiser)
     consumer.start()
 
@@ -115,12 +119,14 @@ def test_decode_raiser(message, timer, caplog):
 
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"{encode(message)} can't be decoded, sending SIGUSR2", False),
+        ("ERROR", f"{encode(message)} can't be decoded, shutting down gracefully", False),
         ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
     ]
 
 
 def test_halt(message, timer, caplog):
+    caplog.set_level(logging.INFO)
+
     consumer = async_consumer(callback=raiser, queue="q")
     consumer.start()
 
@@ -129,27 +135,15 @@ def test_halt(message, timer, caplog):
 
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"Unhandled exception when consuming {encode(message)}, sending SIGUSR1", False),
+        ("ERROR", f"Unhandled exception when consuming {encode(message)}, shutting down gracefully", False),
         ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
     ]
 
 
 def test_discard(message, short_timer, caplog):
+    caplog.set_level(logging.INFO)
+
     consumer = async_consumer(callback=raiser, queue="q", decorator=discard)
-    consumer.start()
-
-    assert consumer.channel.is_closed
-    assert consumer.connection.is_closed
-
-    assert len(caplog.records) == 2
-    assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"Unhandled exception when consuming {encode(message)}, discarding message", False),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
-    ]
-
-
-def test_requeue(message, short_timer, caplog):
-    consumer = async_consumer(callback=raiser, queue="q", decorator=requeue)
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -157,8 +151,26 @@ def test_requeue(message, short_timer, caplog):
 
     assert len(caplog.records) == 3
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
+        ("ERROR", f"Unhandled exception when consuming {encode(message)}, discarding message", False),
+        ("INFO", "Received SIGINT, shutting down gracefully", True),
+        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
+    ]
+
+
+def test_requeue(message, short_timer, caplog):
+    caplog.set_level(logging.INFO)
+
+    consumer = async_consumer(callback=raiser, queue="q", decorator=requeue)
+    consumer.start()
+
+    assert consumer.channel.is_closed
+    assert consumer.connection.is_closed
+
+    assert len(caplog.records) == 4
+    assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
         ("ERROR", f"Unhandled exception when consuming {encode(message)} (requeue=True)", False),
         ("ERROR", f"Unhandled exception when consuming {encode(message)} (requeue=False)", False),
+        ("INFO", "Received SIGINT, shutting down gracefully", True),
         ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
     ]
 

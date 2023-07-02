@@ -28,14 +28,12 @@ Decorators look like this (see :func:`~yapw.decorators.decorate` for context):
 from __future__ import annotations
 
 import logging
-import os
-import signal
 from collections.abc import Callable
 from typing import Any
 
 import pika
 
-from yapw.methods import nack
+from yapw.methods import add_callback_threadsafe, nack
 from yapw.types import ConsumerCallback, Decode, State
 
 logger = logging.getLogger(__name__)
@@ -58,7 +56,7 @@ def decorate(
     If the ``callback`` function raises an exception, call the ``errback`` function. In any case, call the
     ``finalback`` function after calling the ``callback`` function.
 
-    If the ``decode`` function raises an exception, send the SIGUSR2 signal to the main thread.
+    If the ``decode`` function raises an exception, shut down the client in the main thread.
 
     .. seealso::
 
@@ -77,8 +75,8 @@ def decorate(
             if finalback:
                 finalback()
     except Exception:
-        logger.exception("%r can't be decoded, sending SIGUSR2", body)
-        os.kill(os.getpid(), signal.SIGUSR2)
+        logger.exception("%r can't be decoded, shutting down gracefully", body)
+        add_callback_threadsafe(state.connection, state.interrupt)
 
 
 # https://stackoverflow.com/a/7099229/244258
@@ -92,12 +90,12 @@ def halt(
     body: bytes,
 ) -> None:
     """
-    If the callback raises an exception, send the SIGUSR1 signal to the main thread, without acknowledgment.
+    If the callback raises an exception, shut down the client in the main thread, without acknowledgment.
     """
 
     def errback(exception: Exception) -> None:
-        logger.exception("Unhandled exception when consuming %r, sending SIGUSR1", body)
-        os.kill(os.getpid(), signal.SIGUSR1)
+        logger.exception("Unhandled exception when consuming %r, shutting down gracefully", body)
+        add_callback_threadsafe(state.connection, state.interrupt)
 
     decorate(decode, callback, state, channel, method, properties, body, errback)
 

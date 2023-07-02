@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.mark.parametrize(
     "signum,signame",
-    [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM"), (signal.SIGUSR1, "SIGUSR1"), (signal.SIGUSR2, "SIGUSR2")],
+    [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM")],
 )
 def test_shutdown(signum, signame, message, caplog):
     caplog.set_level(logging.INFO)
@@ -54,10 +54,9 @@ def test_decode_invalid(short_message, caplog):
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 2
+    assert len(caplog.records) == 1
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"{encode(short_message)} can't be decoded, sending SIGUSR2", False),
-        ("INFO", "Received SIGUSR2, shutting down gracefully", True),
+        ("ERROR", f"{encode(short_message)} can't be decoded, shutting down gracefully", False),
     ]
 
 
@@ -71,10 +70,9 @@ def test_decode_raiser(message, caplog):
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 2
+    assert len(caplog.records) == 1
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"{encode(message)} can't be decoded, sending SIGUSR2", False),
-        ("INFO", "Received SIGUSR2, shutting down gracefully", True),
+        ("ERROR", f"{encode(message)} can't be decoded, shutting down gracefully", False),
     ]
 
 
@@ -88,10 +86,9 @@ def test_halt(message, caplog):
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records) == 2
+    assert len(caplog.records) == 1
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
-        ("ERROR", f"Unhandled exception when consuming {encode(message)}, sending SIGUSR1", False),
-        ("INFO", "Received SIGUSR1, shutting down gracefully", True),
+        ("ERROR", f"Unhandled exception when consuming {encode(message)}, shutting down gracefully", False),
     ]
 
 

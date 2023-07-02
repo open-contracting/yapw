@@ -31,6 +31,7 @@ Non-breaking changes:
 
 -  Pending futures are cancelled during graceful shutdown.
 -  The signal handlers for the :class:`~yapw.clients.Blocking` class are installed before the consumer starts, instead of during initialization.
+-  Use callbacks to communicate with the main thread from other threads, instead of sending SIGUSR1 or SIGUSR2 signals.
 -  Do not catch the ``pika.exceptions.ConnectionClosedByBroker`` exception when using the blocking connection adapter (can't be caught).
 -  The thread pool's thread names are prefixed by the exchange name, instead of by the queue name.
 -  Drop Python 3.7, 3.8, 3.9, 3.10 support.
