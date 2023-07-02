@@ -4,18 +4,36 @@ Changelog
 0.1.0 (2023-06-29)
 ------------------
 
+Added
+~~~~~
+
+-  :class:`yapw.clients.Async`
+-  :class:`yapw.clients.AsyncConsumer`
+-  :meth:`yapw.clients.Base.start_consumer`
+-  :meth:`yapw.clients.Base.channel_cancel`
+-  :meth:`yapw.clients.Base.interrupt`
+-  :meth:`yapw.clients.Base.state`
+
 Changed
 ~~~~~~~
 
 **BREAKING CHANGES**
 
 -  Use subclasses instead of mixins, to share logic between synchronous and asynchronous clients with less code.
--  Merge ``yapw.clients.Publisher`` and ``yapw.clients.Threaded`` into :class:`~yapw.clients.Blocking`.
+-  Move ``__init__`` arguments from other classes to the :class:`~yapw.clients.Base` class.
+-  Move the ``publish`` method from the  :class:`~yapw.clients.Blocking` class to the :class:`~yapw.clients.Base` class.
+-  Merge the ``yapw.clients.Publisher`` and ``yapw.clients.Threaded`` classes into the :class:`~yapw.clients.Blocking` class.
 -  Replace ``Durable`` and ``Transient`` with a ``durable`` keyword argument.
--  Move ``__init__`` arguments from mixins to the :class:`~yapw.clients.Base` class.
--  Move the :meth:`yapw.clients.Base.close` method to the :class:`~yapw.clients.Base` class.
--  Copy the :meth:`yapw.clients.Blocking.declare_queue` and :meth:`~yapw.clients.Blocking.publish` methods to the :class:`~yapw.clients.Base` class.
--  Extract the :meth:`yapw.clients.Base.declare_exchange_and_configure_prefetch` method into the :class:`~yapw.clients.Base` class.
+-  Rename the ``yapw.methods.blocking`` module to the :mod:`yapw.methods` module.
+-  Move the ``default_decode`` method to the :mod:`yapw.util` module.
+
+Non-breaking changes:
+
+-  Pending futures are cancelled during graceful shutdown.
+-  The signal handlers for the :class:`~yapw.clients.Blocking` class are installed before the consumer starts, instead of during initialization.
+-  Do not catch the ``pika.exceptions.ConnectionClosedByBroker`` exception when using the blocking connection adapter (can't be caught).
+-  The thread pool's thread names are prefixed by the exchange name, instead of by the queue name.
+-  Drop Python 3.7, 3.8, 3.9, 3.10 support.
 
 0.0.13 (2022-01-28)
 -------------------
@@ -136,7 +154,7 @@ Changed
 Added
 ~~~~~
 
--  Add :func:`yapw.methods.blocking.publish` to publish messages from the context of a consumer callback.
+-  Add :func:`yapw.methods.publish` to publish messages from the context of a consumer callback.
 
 Changed
 ~~~~~~~

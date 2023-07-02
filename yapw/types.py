@@ -1,21 +1,14 @@
-import sys
-from typing import Any, Callable, NamedTuple, Optional
+from collections.abc import Callable
+from typing import Any, Generic, NamedTuple, Optional, TypedDict, TypeVar
 
 import pika
 
-if sys.version_info >= (3, 8):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
-
-
-#:
+T = TypeVar("T")
 Encode = Callable[[Any, str], bytes]
-#:
 Decode = Callable[[bytes, Optional[str]], Any]
 
 
-class State(NamedTuple):
+class State(NamedTuple, Generic[T]):
     """
     Attributes that can be used safely in consumer callbacks.
     """
@@ -23,7 +16,7 @@ class State(NamedTuple):
     #: A function to format the routing key.
     format_routing_key: Callable[[str], str]
     #: The connection.
-    connection: pika.BlockingConnection
+    connection: T
     #: The exchange name.
     exchange: str
     #: The message bodies' encoder.
@@ -49,9 +42,7 @@ class PublishKeywords(TypedDict, total=False):
     properties: pika.BasicProperties
 
 
-#:
 ConsumerCallback = Callable[[State, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, Any], None]
-#:
 Decorator = Callable[
     [Decode, ConsumerCallback, State, pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, bytes], None
 ]

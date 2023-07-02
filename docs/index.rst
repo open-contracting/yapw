@@ -37,7 +37,7 @@ Consume messages
 .. code-block:: python
 
    from yapw.decorators import discard
-   from yapw.methods.blocking import ack, nack, publish
+   from yapw.methods import ack, nack, publish
 
 
    def callback(state, channel, method, properties, body):
@@ -69,7 +69,7 @@ yapw uses a thread pool to run the consumer callback in separate threads.
 Channel methods
 ~~~~~~~~~~~~~~~
 
-The :func:`~yapw.methods.blocking.ack`, :func:`~yapw.methods.blocking.nack` and  :func:`~yapw.methods.blocking.publish` functions are safe to call from the consumer callback. They log an error if the connection or channel isn't open.
+The :func:`~yapw.methods.ack`, :func:`~yapw.methods.nack` and  :func:`~yapw.methods.publish` functions are safe to call from a consumer callback running in another thread. They log an error if the connection or channel isn't open.
 
 .. note::
 
@@ -80,7 +80,7 @@ Encoding and decoding
 
 By default, when publishing messages, all classes use a content type of "application/json" and encode the message body with the :func:`~yapw.util.default_encode` function, which serializes to JSON-formatted bytes when the content type is "application/json".
 
-Similarly, when consuming messages, all classes use the :func:`~yapw.decorators.default_decode` function, which deserializes from JSON-formatted bytes when the consumed message's content type is "application/json".
+Similarly, when consuming messages, all classes use the :func:`~yapw.util.default_decode` function, which deserializes from JSON-formatted bytes when the consumed message's content type is "application/json".
 
 You can change this behavior. For example, change the bodies of the ``encode`` and ``decode`` functions below:
 
@@ -115,7 +115,7 @@ The ``decorator`` keyword argument to the :meth:`~yapw.clients.Blocking.consume`
 
 When using `consumer prefetch <https://www.rabbitmq.com/consumer-prefetch.html>`__, if a message is not ack'd or nack'd, then `RabbitMQ stops delivering messages <https://www.rabbitmq.com/confirms.html#channel-qos-prefetch>`__. As such, it's important to handle unexpected errors by either acknowledging the message or halting the process. Otherwise, the process will stall.
 
-The default decorator is the :func:`yapw.decorators.halt` function, which sends the SIGUSR1 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Blocking` class handles this signal by shutting down gracefully. See the :doc:`available decorators<api/decorators>` and the rationale for the default setting.
+The default decorator is the :func:`yapw.decorators.halt` function, which sends the SIGUSR1 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Blocking` class handles this signal by shutting down gracefully. See the :doc:`available decorators<api/decorators/index>` and the rationale for the default setting.
 
 All decorators also decode the message body, which can be configured as above. If an exception occurs while decoding, the decorator sends the SIGUSR2 signal to the main thread, without acknowledging the message. The :class:`~yapw.clients.Blocking` class handles this signal by shutting down gracefully.
 

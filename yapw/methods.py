@@ -1,10 +1,10 @@
 """
-Functions for calling channel methods from the context of a consumer callback.
+Functions for calling channel methods from the context of a consumer callback running in another thread.
 """
 
 import functools
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import pika
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def publish(
-    state: State, channel: pika.channel.Channel, message: Any, routing_key: str, *args: Any, **kwargs: Any
+    state: State[Any], channel: pika.channel.Channel, message: Any, routing_key: str, *args: Any, **kwargs: Any
 ) -> None:
     """
     Publish with the provided message and routing key, and with the exchange set by the provided state.
@@ -32,7 +32,7 @@ def publish(
     logger.debug(*basic_publish_debug_args(channel, message, keywords))
 
 
-def ack(state: State, channel: pika.channel.Channel, delivery_tag: Optional[int] = 0, **kwargs: bool) -> None:
+def ack(state: State[Any], channel: pika.channel.Channel, delivery_tag: int | None = 0, **kwargs: bool) -> None:
     """
     Ack a message by its delivery tag.
 
@@ -44,7 +44,7 @@ def ack(state: State, channel: pika.channel.Channel, delivery_tag: Optional[int]
     logger.debug("Ack'd message on channel %s with delivery tag %s", channel.channel_number, delivery_tag)
 
 
-def nack(state: State, channel: pika.channel.Channel, delivery_tag: Optional[int] = 0, **kwargs: bool) -> None:
+def nack(state: State[Any], channel: pika.channel.Channel, delivery_tag: int | None = 0, **kwargs: bool) -> None:
     """
     Nack a message by its delivery tag.
 
@@ -57,11 +57,16 @@ def nack(state: State, channel: pika.channel.Channel, delivery_tag: Optional[int
 
 
 def _channel_method_from_thread(
-    connection: pika.BlockingConnection, channel: pika.channel.Channel, method: str, *args: Any, **kwargs: Any
+    connection: Any, channel: pika.channel.Channel, method: str, *args: Any, **kwargs: Any
 ) -> None:
     if connection.is_open:
         cb = functools.partial(_channel_method_from_main, channel, method, *args, **kwargs)
-        connection.add_callback_threadsafe(cb)
+        # One branch per adapter.
+        if hasattr(connection, "ioloop"):
+            caller = connection.ioloop
+        else:
+            caller = connection
+        caller.add_callback_threadsafe(cb)
     else:
         logger.error("Can't %s as connection is closed or closing", method)
 

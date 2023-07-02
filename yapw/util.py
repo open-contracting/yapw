@@ -1,6 +1,6 @@
 import json
 import pickle
-from typing import TYPE_CHECKING, Any, Tuple, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import pika
 
@@ -31,6 +31,22 @@ def json_dumps(message: Any) -> bytes:
     return orjson.dumps(message)
 
 
+def default_decode(body: bytes, content_type: str | None) -> Any:
+    """
+    If the content type is "application/json", deserializes the JSON formatted bytes to a Python object. Otherwise,
+    returns the bytes (which the consumer callback can deserialize independently).
+
+    Uses `orjson <https://pypi.org/project/orjson/>`__ if available.
+
+    :param body: the encoded message
+    :param content_type: the message's content type
+    :returns: a Python object
+    """
+    if content_type == "application/json":
+        return jsonlib.loads(body)
+    return body
+
+
 def default_encode(message: Any, content_type: str) -> bytes:
     """
     Encode the decoded message to bytes.
@@ -53,7 +69,7 @@ def default_encode(message: Any, content_type: str) -> bytes:
     return pickle.dumps(message)
 
 
-def basic_publish_kwargs(state: Union["Base", State], message: Any, routing_key: str) -> PublishKeywords:
+def basic_publish_kwargs(state: Union["Base[Any]", State[Any]], message: Any, routing_key: str) -> PublishKeywords:
     """
     Prepare keyword arguments for ``basic_publish``.
 
@@ -72,10 +88,10 @@ def basic_publish_kwargs(state: Union["Base", State], message: Any, routing_key:
 
 
 def basic_publish_debug_args(
-    channel: Union[pika.channel.Channel, pika.adapters.blocking_connection.BlockingChannel],
+    channel: pika.channel.Channel | pika.adapters.blocking_connection.BlockingChannel,
     message: Any,
     keywords: PublishKeywords,
-) -> Tuple[str, Any, int, str, str]:
+) -> tuple[str, Any, int, str, str]:
     """
     Prepare arguments for ``logger.debug`` related to publishing a message.
 

@@ -5,10 +5,12 @@ A message must be ack'd or nack'd if using `consumer prefetch <https://www.rabbi
 because otherwise `RabbitMQ stops delivering messages <https://www.rabbitmq.com/confirms.html#channel-qos-prefetch>`__.
 The decorators help to ensure that, in case of error, either the message is nack'd or the process is halted.
 
-:func:`~yapw.decorators.halt` is the default decorator. For example, if a callback inserts messages into a database,
-and the database is down, but this exception isn't handled by the callback, then the :func:`~yapw.decorators.discard`
-or :func:`~yapw.decorators.requeue` decorators would end up nack'ing all messages in the queue. The ``halt`` decorator
-instead stops the consumer, so that an administrator can decide when it is appropriate to restart it.
+:func:`~yapw.decorators.halt` is the default decorator. It stops the consumer and halts the process, so that an
+administrator can decide when it is appropriate to restart it.
+
+The other decorators require more care. For example, if a callback inserts messages into a database, and the database
+is down, but this exception isn't handled by the callback, then the :func:`~yapw.decorators.discard` or
+:func:`~yapw.decorators.requeue` decorators would end up nack'ing all messages in the queue.
 
 Decorators look like this (see :func:`~yapw.decorators.decorate` for context):
 
@@ -22,51 +24,33 @@ Decorators look like this (see :func:`~yapw.decorators.decorate` for context):
            # do something, like halting the process or nack'ing the message
 
        decorate(decode, callback, state, channel, method, properties, body, errback)
-
-User-defined decorators should avoid doing work outside the ``finally`` branch. Do work in the callback.
 """
 from __future__ import annotations
 
 import logging
 import os
 import signal
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import pika
 
-from yapw.methods.blocking import nack
+from yapw.methods import nack
 from yapw.types import ConsumerCallback, Decode, State
-from yapw.util import jsonlib
 
 logger = logging.getLogger(__name__)
-
-
-def default_decode(body: bytes, content_type: Optional[str]) -> Any:
-    """
-    If the content type is "application/json", deserializes the JSON formatted bytes to a Python object. Otherwise,
-    returns the bytes (which the consumer callback can deserialize independently).
-
-    Uses `orjson <https://pypi.org/project/orjson/>`__ if available.
-
-    :param body: the encoded message
-    :param content_type: the message's content type
-    :returns: a Python object
-    """
-    if content_type == "application/json":
-        return jsonlib.loads(body)
-    return body
 
 
 def decorate(
     decode: Decode,
     callback: ConsumerCallback,
-    state: State,
+    state: State[Any],
     channel: pika.channel.Channel,
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
     errback: Callable[[Exception], None],
-    finalback: Optional[Callable[[], None]] = None,
+    finalback: Callable[[], None] | None = None,
 ) -> None:
     """
     Decode the message ``body`` using the ``decode`` function, and call the consumer ``callback``.
@@ -78,7 +62,7 @@ def decorate(
 
     .. seealso::
 
-       :meth:`yapw.clients.Blocking.consume` for details on the consumer callback function signature.
+       :meth:`yapw.clients.Base.start_consumer` for details on the consumer callback function signature.
     """
     logger.debug(
         "Received message %s with routing key %s and delivery tag %s", body, method.routing_key, method.delivery_tag
@@ -101,7 +85,7 @@ def decorate(
 def halt(
     decode: Decode,
     callback: ConsumerCallback,
-    state: State,
+    state: State[Any],
     channel: pika.channel.Channel,
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
@@ -121,14 +105,14 @@ def halt(
 def discard(
     decode: Decode,
     callback: ConsumerCallback,
-    state: State,
+    state: State[Any],
     channel: pika.channel.Channel,
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
 ) -> None:
     """
-    If the callback raises an exception, nack the message without requeueing.
+    If the callback raises an exception in a thread, nack the message, without requeueing.
     """
 
     def errback(exception: Exception) -> None:
@@ -141,14 +125,14 @@ def discard(
 def requeue(
     decode: Decode,
     callback: ConsumerCallback,
-    state: State,
+    state: State[Any],
     channel: pika.channel.Channel,
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
 ) -> None:
     """
-    If the callback raises an exception, nack the message, and requeue the message unless it was redelivered.
+    If the callback raises an exception in a thread, nack the message, requeueing it unless it was redelivered.
     """
 
     def errback(exception: Exception) -> None:

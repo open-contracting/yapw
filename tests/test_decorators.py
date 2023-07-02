@@ -5,7 +5,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from yapw.decorators import decorate, default_decode, discard, requeue
+from yapw.decorators import decorate, discard, requeue
+from yapw.util import default_decode
 
 # https://pika.readthedocs.io/en/stable/modules/spec.html#pika.spec.Basic.Deliver
 Deliver = namedtuple("Deliver", "delivery_tag redelivered routing_key")
