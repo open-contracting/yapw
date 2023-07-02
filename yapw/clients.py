@@ -219,7 +219,8 @@ class Blocking(Base[pika.BlockingConnection]):
 
     def __init__(self, **kwargs: Any):
         """
-        Connect to RabbitMQ, create a channel and declare an exchange, unless using the default exchange.
+        Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange, unless using the
+        default exchange.
         """
         super().__init__(**kwargs)
 
@@ -317,10 +318,25 @@ class Async(Base[pika.SelectConnection]):
     """
     Uses Pika's `SelectConnection adapter <https://pika.readthedocs.io/en/stable/modules/adapters/select.html>`__.
     Reconnects to RabbitMQ if the connection is closed unexpectedly or can't be established.
+
+    By calling :meth:`~yapw.clients.Async.start`, this client connects to RabbitMQ, installs signal handlers, and
+    starts the IO loop. Once the IO loop starts, it creates a channel, sets the prefetch count, and declares the
+    exchange (unless using the default exchange).
+
+    One the exchange is declared, the callback calls :meth:`~yapw.clients.Async.exchange_ready`. You must define this
+    method in a subclass, to do any work you need.
+
+    The signal handlers cancel the consumer, if consuming and if the channel is open. Otherwise, they wait for threads
+    to terminate and close the connection. This graceful shutdown also occurs if the broker cancels the consumer or if
+    the channel closes for any another reason.
+
+    If the connection becomes `blocked <https://www.rabbitmq.com/connection-blocked.html>`__ or unblocked, the
+    ``blocked`` attribute is set to ``True`` or ``False``, respectively. Your code can use this attribute to, for
+    example, pause, buffer or reschedule deliveries.
     """
 
     # RabbitMQ takes about 10 seconds to restart.
-    DELAY = 15
+    RECONNECT_DELAY = 15
 
     def __init__(self, **kwargs: Any):
         """
@@ -345,7 +361,8 @@ class Async(Base[pika.SelectConnection]):
 
     def connect(self) -> None:
         """
-        Connect to RabbitMQ, create a channel and declare an exchange, unless using the default exchange.
+        Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange, unless using the
+        default exchange.
         """
         self.connection = pika.SelectConnection(
             self.parameters,
@@ -389,16 +406,16 @@ class Async(Base[pika.SelectConnection]):
 
     def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
         """Retry, once the connection couldn't be established."""
-        logger.error("Connection failed, retrying in %ds: %s", self.DELAY, error)
-        self.connection.ioloop.call_later(self.DELAY, self.reconnect)
+        logger.error("Connection failed, retrying in %ds: %s", self.RECONNECT_DELAY, error)
+        self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
 
     def connection_close_callback(self, connection: pika.connection.Connection, reason: Exception) -> None:
         """Reconnect, if the connection was closed unexpectedly. Otherwise, stop the IO loop."""
         if self.stopping:
             self.connection.ioloop.stop()
         else:
-            logger.error("Connection closed, reconnecting in %ds: %s", self.DELAY, reason)
-            self.connection.ioloop.call_later(self.DELAY, self.reconnect)
+            logger.error("Connection closed, reconnecting in %ds: %s", self.RECONNECT_DELAY, reason)
+            self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
 
     def interrupt(self) -> None:
         """
@@ -479,6 +496,14 @@ class Async(Base[pika.SelectConnection]):
 class AsyncConsumer(Async):
     """
     An asynchronous consumer, extending :class:`~yapw.clients.Async`.
+
+    After calling :meth:`~yapw.clients.Async.start`, this client declares the ``queue``, binds it to the exchange with
+    the ``routing_keys``, and starts consuming messages from that queue (see :meth:`yapw.clients.Base.start_consumer`),
+    using the consumer ``callback`` and its ``decorator``.
+
+    If no ``routing_keys`` are provided, the ``queue`` is bound to the exchange using its name as the routing key.
+
+    The ``callback`` and ``queue`` keyword arguments are required.
     """
 
     def __init__(
@@ -492,14 +517,6 @@ class AsyncConsumer(Async):
         **kwargs: Any,
     ) -> None:
         """
-        Declare a queue, bind it to the exchange with the routing keys, and start consuming messages from that queue.
-
-        If no routing keys are provided, the queue is bound to the exchange using its name as the routing key.
-
-        .. seealso::
-
-           :meth:`yapw.clients.Base.start_consumer`
-
         :param callback: the consumer callback
         :param queue: the queue's name
         :param routing_keys: the queue's routing keys

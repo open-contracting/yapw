@@ -1,6 +1,10 @@
 |PyPI Version| |Build Status| |Coverage Status| |Python Version|
 
-Yet Another Pika Wrapper (yapw – pronounced yapu) makes it easier to create a `Pika <https://pika.readthedocs.io/en/stable/>`__ client that has error handling, signal handling, useful logging and good defaults.
+Yet Another Pika Wrapper (yapw – pronounced yapu) makes it easier to create a `Pika <https://pika.readthedocs.io/en/stable/>`__ client that:
+
+-  Runs consumer callbacks in separate threads.
+-  Automatically decodes and encodes messages.
+-  Has error handling, signal handling, useful logging and good defaults.
 
 (If you are viewing this on GitHub, open the `full documentation <https://yapw.readthedocs.io/>`__ for additional details.)
 

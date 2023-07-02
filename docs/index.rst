@@ -59,9 +59,14 @@ Publish messages outside a consumer callback
          from yapw.clients import Async
 
 
-         publisher = Async(url="amqp://user:pass@127.0.0.1", exchange="myexchange")
-         publisher.publish({"message": "value"}, routing_key="messages")
-         publisher.close()
+         class Publisher(Async):
+             def exchange_ready(self):
+                self.publish({"message": "value"}, routing_key="messages")
+                self.interrupt()  # only if you want to stop the client
+
+
+         publisher = Publisher(url="amqp://user:pass@127.0.0.1", exchange="myexchange")
+         publisher.start()
 
 The routing key is namespaced by the exchange name, to make it "myexchange_messages".
 
