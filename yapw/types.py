@@ -15,10 +15,10 @@ class State(NamedTuple, Generic[T]):
 
     #: A function to format the routing key.
     format_routing_key: Callable[[str], str]
+    #: A function to shut down the client.
+    interrupt: Callable[[T], None]
     #: The connection.
     connection: T
-    #: A method to shut down the client.
-    interrupt: Callable[[T], None]
     #: The exchange name.
     exchange: str
     #: The message bodies' encoder.

@@ -1,7 +1,7 @@
 """
 Classes for RabbitMQ clients.
 
-.. note::
+.. warning::
 
    Importing this module sets the level of the "pika" logger to ``WARNING``, so that consumers can use the ``DEBUG``
    and ``INFO`` levels without their messages getting lost in Pika's verbosity.
@@ -45,6 +45,8 @@ def _on_message(
 
 class Base(Generic[T]):
     """
+    Base class providing common functionality to other clients. You cannot use this class directly.
+
     When consuming a message, by default, its body is decoded using :func:`yapw.util.default_decode`. Use the
     ``decode`` keyword argument to change this. The ``decode`` must be a function that accepts ``(state, channel,
     method, properties, body)`` arguments (like the consumer callback) and returns a decoded message.
@@ -82,7 +84,7 @@ class Base(Generic[T]):
         routing_key_template: str = "{exchange}_{routing_key}",
     ):
         """
-        :param url: the connection string (don't set a blocked_connection_timeout query string parameter)
+        :param url: the connection string (don't set a ``blocked_connection_timeout`` query string parameter)
         :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
         :param durable: whether to declare a durable exchange, declare durable queues, and publish persistent messages
         :param exchange: the exchange name
@@ -117,11 +119,11 @@ class Base(Generic[T]):
         self.routing_key_template = routing_key_template
 
         #: The messages' delivery mode.
-        self.delivery_mode = 2 if durable else 1
+        self.delivery_mode = 2 if self.durable else 1
         #: The consumer's tag.
         self.consumer_tag = ""
         #: The thread pool executor.
-        self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{exchange}")
+        self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.exchange}")
 
     def format_routing_key(self, routing_key: str) -> str:
         """
@@ -138,7 +140,7 @@ class Base(Generic[T]):
         routing_key: str,
     ) -> None:
         """
-        Publish from the IO loop thread, with the provided message and routing key, and with the configured exchange.
+        Publish the ``message`` with the ``routing_key`` to the configured exchange, from the IO loop thread.
 
         :param message: a decoded message
         :param routing_key: the routing key
@@ -152,7 +154,7 @@ class Base(Generic[T]):
         """
         Start consuming messages from the queue.
 
-        The consumer callback is run in separate threads, to not block the IO loop.
+        Run the consumer callback in separate threads, to not block the IO loop.
 
         The consumer callback is a function that accepts ``(state, channel, method, properties, body)`` arguments. The
         ``state`` argument contains thread-safe attributes. The rest are the same as Pika's ``basic_consume``.
@@ -167,7 +169,7 @@ class Base(Generic[T]):
     # https://www.rabbitmq.com/consumer-cancel.html
     def channel_cancel(self, method: Any) -> Any:  # different method types for each channel class
         """
-        Close the channel. (RabbitMQ uses basic.cancel if a channel is consuming a queue and the queue is deleted.)
+        Close the channel. (RabbitMQ uses ``basic.cancel`` if a channel is consuming a queue and the queue is deleted.)
         """
         logger.error("Consumer was cancelled by broker, stopping: %r", method)
         if hasattr(self.channel, "stop_consuming"):
@@ -212,7 +214,7 @@ class Base(Generic[T]):
 
 class Blocking(Base[pika.BlockingConnection]):
     """
-    Uses a `blocking connection adapter <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__.
+    Uses Pika's `BlockingConnection adapter <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__.
     """
 
     def __init__(self, **kwargs: Any):
@@ -265,9 +267,10 @@ class Blocking(Base[pika.BlockingConnection]):
     ) -> None:
         """
         Declare a queue, bind it to the exchange with the routing keys, and start consuming messages from that queue.
+
         If no routing keys are provided, the queue is bound to the exchange using its name as the routing key.
 
-        This installs signal handlers to wait for threads to terminate. Therefore, only call this from the main thread.
+        Install signal handlers to wait for threads to terminate.
 
         .. seealso::
 
@@ -312,7 +315,7 @@ class Blocking(Base[pika.BlockingConnection]):
 # https://github.com/pika/pika/issues/727#issuecomment-213644075
 class Async(Base[pika.SelectConnection]):
     """
-    Uses an `asynchronous connection adapter <https://pika.readthedocs.io/en/stable/modules/adapters/select.html>`__.
+    Uses Pika's `SelectConnection adapter <https://pika.readthedocs.io/en/stable/modules/adapters/select.html>`__.
     Reconnects to RabbitMQ if the connection is closed unexpectedly or can't be established.
     """
 
@@ -332,9 +335,9 @@ class Async(Base[pika.SelectConnection]):
 
     def start(self) -> None:
         """
-        :meth:`Connect<yapw.clients.Async.connect` to RabbitMQ and start the IO loop.
+        :meth:`Connect<yapw.clients.Async.connect>` to RabbitMQ and start the IO loop.
 
-        This installs signal handlers to stop the IO loop correctly. Therefore, only call this from the main thread.
+        Install signal handlers to stop the IO loop correctly.
         """
         self.connect()
         install_signal_handlers(self._on_signal)
@@ -346,9 +349,9 @@ class Async(Base[pika.SelectConnection]):
         """
         self.connection = pika.SelectConnection(
             self.parameters,
-            on_open_callback=self.connection_open,
-            on_open_error_callback=self.connection_open_error,
-            on_close_callback=self.connection_close,
+            on_open_callback=self.connection_open_callback,
+            on_open_error_callback=self.connection_open_error_callback,
+            on_close_callback=self.connection_close_callback,
         )
         self.connection.add_on_connection_blocked_callback(self.connection_blocked_callback)
         self.connection.add_on_connection_unblocked_callback(self.connection_unblocked_callback)
@@ -357,7 +360,7 @@ class Async(Base[pika.SelectConnection]):
         """
         Mark the client as blocked.
 
-        The client must implement any logic for pausing deliveries or filling buffers.
+        Subclasses must implement any logic for pausing deliveries or filling buffers.
         """
         logger.warning("Connection blocked")
         self.blocked = True
@@ -366,14 +369,14 @@ class Async(Base[pika.SelectConnection]):
         """
         Mark the client as unblocked.
 
-        The client must implement any logic for resuming deliveries or clearing buffers.
+        Subclasses must implement any logic for resuming deliveries or clearing buffers.
         """
         logger.warning("Connection unblocked")
         self.blocked = False
 
     def reconnect(self) -> None:
         """
-        If a signal was received while the timer was running, stop the IO loop. Otherwise, reconnect to RabbitMQ.
+        Reconnect to RabbitMQ, unless a signal was received while the timer was running. If so, stop the IO loop.
         """
         if self.stopping:
             self.connection.ioloop.stop()
@@ -381,15 +384,16 @@ class Async(Base[pika.SelectConnection]):
             # Reset mutable attributes.
             self.blocked = False
             self.consumer_tag = ""
+            self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.exchange}")
             self.connect()
 
-    def connection_open_error(self, connection: pika.connection.Connection, error: Exception | str) -> None:
-        """Retry if the connection can't be established."""
+    def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
+        """Retry, once the connection couldn't be established."""
         logger.error("Connection failed, retrying in %ds: %s", self.DELAY, error)
         self.connection.ioloop.call_later(self.DELAY, self.reconnect)
 
-    def connection_close(self, connection: pika.connection.Connection, reason: Exception) -> None:
-        """Reconnect if the connection is closed unexpectedly. Otherwise, stop the IO loop."""
+    def connection_close_callback(self, connection: pika.connection.Connection, reason: Exception) -> None:
+        """Reconnect, if the connection was closed unexpectedly. Otherwise, stop the IO loop."""
         if self.stopping:
             self.connection.ioloop.stop()
         else:
@@ -398,7 +402,8 @@ class Async(Base[pika.SelectConnection]):
 
     def interrupt(self) -> None:
         """
-        `Cancel <https://www.rabbitmq.com/consumers.html#unsubscribing>`__ the consumer, or close the channel.
+        `Cancel <https://www.rabbitmq.com/consumers.html#unsubscribing>`__ the consumer if consuming and if the channel
+        is open. Otherwise, wait for threads to terminate and close the connection.
         """
         # Signals handlers are installed, so the IO loop is not stopped. If there were no signal handlers, the IO
         # loop would have been stopped, and would need to restart to send buffered requests to RabbitMQ.
@@ -407,35 +412,35 @@ class Async(Base[pika.SelectConnection]):
         self.stopping = True
 
         if self.consumer_tag and not self.channel.is_closed and not self.channel.is_closing:
-            self.channel.basic_cancel(self.consumer_tag, self.channel_cancelok)
+            self.channel.basic_cancel(self.consumer_tag, self.channel_cancelok_callback)
         elif not self.connection.is_closed and not self.connection.is_closing:
             # The channel is already closed. Free any resources without waiting for threads.
             self.executor.shutdown(wait=False, cancel_futures=True)
             self.connection.close()
 
-    def connection_open(self, connection: pika.connection.Connection) -> None:
+    def connection_open_callback(self, connection: pika.connection.Connection) -> None:
         """Open a channel, once the connection is open."""
-        connection.channel(on_open_callback=self.channel_open)
+        connection.channel(on_open_callback=self.channel_open_callback)
 
-    def channel_open(self, channel: pika.channel.Channel) -> None:
+    def channel_open_callback(self, channel: pika.channel.Channel) -> None:
         """Set the prefetch count, once the channel is open."""
         self.channel: pika.channel.Channel = channel
-        self.channel.add_on_close_callback(self.channel_close)
-        channel.basic_qos(prefetch_count=self.prefetch_count, callback=self.channel_qosok)
+        self.channel.add_on_close_callback(self.channel_close_callback)
+        channel.basic_qos(prefetch_count=self.prefetch_count, callback=self.channel_qosok_callback)
 
-    def channel_cancelok(self, method: pika.frame.Method[pika.spec.Basic.CancelOk]) -> Any:
+    def channel_cancelok_callback(self, method: pika.frame.Method[pika.spec.Basic.CancelOk]) -> Any:
         """
-        Close the channel, once the consumer is cancelled. The :meth:`~yapw.clients.Async.channel_close` callback
+        Close the channel, once the consumer is cancelled. The :meth:`~yapw.clients.Async.channel_close_callback`
         closes the connection.
         """
         # Keep channel open until threads terminate. Ensure the channel closes after any thread-safe callbacks.
         self.executor.shutdown(cancel_futures=True)
         self.connection.ioloop.call_later(0, self.channel.close)
 
-    def channel_close(self, channel: pika.channel.Channel, reason: Exception) -> None:
+    def channel_close_callback(self, channel: pika.channel.Channel, reason: Exception) -> None:
         """
         Close the connection, once the client cancelled the consumer or once RabbitMQ closed the channel due to, e.g.,
-        redeclaring exchanges with inconsistent parameters. Issue a warning, in case it is the latter.
+        redeclaring exchanges with inconsistent parameters. Log a warning, in case it was the latter.
         """
         logger.warning("Channel %i was closed: %s", channel, reason)
         # pika's connection.close() closes all channels. It can update the connection state before this callback runs.
@@ -444,7 +449,7 @@ class Async(Base[pika.SelectConnection]):
             self.executor.shutdown(wait=False, cancel_futures=True)
             self.connection.close()
 
-    def channel_qosok(self, method: pika.frame.Method[pika.spec.Basic.QosOk]) -> None:
+    def channel_qosok_callback(self, method: pika.frame.Method[pika.spec.Basic.QosOk]) -> None:
         """Declare the exchange, once the prefetch count is set."""
         if self.exchange:
             logger.debug(
@@ -457,12 +462,12 @@ class Async(Base[pika.SelectConnection]):
                 exchange=self.exchange,
                 exchange_type=self.exchange_type,
                 durable=self.durable,
-                callback=self.exchange_declareok,
+                callback=self.exchange_declareok_callback,
             )
         else:
             self.exchange_ready()
 
-    def exchange_declareok(self, method: pika.frame.Method[pika.spec.Exchange.DeclareOk]) -> None:
+    def exchange_declareok_callback(self, method: pika.frame.Method[pika.spec.Exchange.DeclareOk]) -> None:
         """Perform user-specified actions, once the exchange is declared."""
         self.exchange_ready()
 
@@ -473,7 +478,7 @@ class Async(Base[pika.SelectConnection]):
 
 class AsyncConsumer(Async):
     """
-    An asynchronous consumer.
+    An asynchronous consumer, extending :class:`~yapw.clients.Async`.
     """
 
     def __init__(
@@ -488,6 +493,7 @@ class AsyncConsumer(Async):
     ) -> None:
         """
         Declare a queue, bind it to the exchange with the routing keys, and start consuming messages from that queue.
+
         If no routing keys are provided, the queue is bound to the exchange using its name as the routing key.
 
         .. seealso::
@@ -516,14 +522,16 @@ class AsyncConsumer(Async):
     def exchange_ready(self) -> None:
         """Declare the queue, once the exchange is declared."""
         queue_name = self.format_routing_key(self.queue)
-        cb = functools.partial(self.queue_declareok, queue_name=queue_name)
+        cb = functools.partial(self.queue_declareok_callback, queue_name=queue_name)
         self.channel.queue_declare(queue=queue_name, durable=self.durable, arguments=self.arguments, callback=cb)
 
-    def queue_declareok(self, method: pika.frame.Method[pika.spec.Queue.DeclareOk], queue_name: str) -> None:
+    def queue_declareok_callback(self, method: pika.frame.Method[pika.spec.Queue.DeclareOk], queue_name: str) -> None:
         """Bind the queue to the first routing key, once the queue is declared."""
         self._bind_queue(queue_name, 0)
 
-    def queue_bindok(self, method: pika.frame.Method[pika.spec.Queue.BindOk], queue_name: str, index: int) -> None:
+    def queue_bindok_callback(
+        self, method: pika.frame.Method[pika.spec.Queue.BindOk], queue_name: str, index: int
+    ) -> None:
         """Bind the queue to the remaining routing keys, or start consuming if all routing keys bound."""
         if index < len(self.routing_keys):
             self._bind_queue(queue_name, index)
@@ -532,5 +540,5 @@ class AsyncConsumer(Async):
 
     def _bind_queue(self, queue_name: str, index: int) -> None:
         routing_key = self.format_routing_key(self.routing_keys[index])
-        cb = functools.partial(self.queue_bindok, queue_name=queue_name, index=index + 1)
+        cb = functools.partial(self.queue_bindok_callback, queue_name=queue_name, index=index + 1)
         self.channel.queue_bind(queue=queue_name, exchange=self.exchange, routing_key=routing_key, callback=cb)

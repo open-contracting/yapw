@@ -1,5 +1,5 @@
 """
-Functions for calling channel methods from the context of a consumer callback running in another thread.
+Functions for calling channel methods from a consumer callback running in another thread.
 """
 
 import functools
@@ -18,9 +18,9 @@ def publish(
     state: State[Any], channel: pika.channel.Channel, message: Any, routing_key: str, *args: Any, **kwargs: Any
 ) -> None:
     """
-    Publish with the provided message and routing key, and with the exchange set by the provided state.
+    Publish the ``message`` with the ``routing_key``, to the exchange set by the ``state``.
 
-    :param state: an object with a ``connection`` attribute
+    :param state: an object with thread-safe attributes from the client
     :param channel: the channel from which to call ``basic_publish``
     :param message: a decoded message
     :param routing_key: the routing key
@@ -36,7 +36,7 @@ def ack(state: State[Any], channel: pika.channel.Channel, delivery_tag: int | No
     """
     Ack a message by its delivery tag.
 
-    :param state: an object with a ``connection`` attribute
+    :param state: an object with thread-safe attributes from the client
     :param channel: the channel from which to call ``basic_ack``
     :param delivery_tag: the delivery tag
     """
@@ -48,7 +48,7 @@ def nack(state: State[Any], channel: pika.channel.Channel, delivery_tag: int | N
     """
     Nack a message by its delivery tag.
 
-    :param state: an object with a ``connection`` attribute
+    :param state: an object with thread-safe attributes from the client
     :param channel: the channel from which to call ``basic_nack``
     :param delivery_tag: the delivery tag
     """
@@ -76,6 +76,9 @@ def _channel_method_from_main(channel: pika.channel.Channel, method: str, *args:
 def add_callback_threadsafe(connection: Any, callback: Any) -> None:
     """
     Interact with Pika from another thread.
+
+    :param connection: a RabbitMQ connection
+    :param callback: the callback to add
     """
     # One branch per adapter.
     if hasattr(connection, "ioloop"):

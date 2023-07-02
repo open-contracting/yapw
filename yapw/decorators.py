@@ -12,7 +12,7 @@ The other decorators require more care. For example, if a callback inserts messa
 is down, but this exception isn't handled by the callback, then the :func:`~yapw.decorators.discard` or
 :func:`~yapw.decorators.requeue` decorators would end up nack'ing all messages in the queue.
 
-Decorators look like this (see :func:`~yapw.decorators.decorate` for context):
+Decorators look like this (see the :func:`~yapw.decorators.decorate` function for context):
 
 .. code-block:: python
 
@@ -51,6 +51,8 @@ def decorate(
     finalback: Callable[[], None] | None = None,
 ) -> None:
     """
+    Use this function to define your own decorators.
+
     Decode the message ``body`` using the ``decode`` function, and call the consumer ``callback``.
 
     If the ``callback`` function raises an exception, call the ``errback`` function. In any case, call the
@@ -90,7 +92,7 @@ def halt(
     body: bytes,
 ) -> None:
     """
-    If the callback raises an exception, shut down the client in the main thread, without acknowledgment.
+    If the ``callback`` function raises an exception, shut down the client in the main thread, without acknowledgment.
     """
 
     def errback(exception: Exception) -> None:
@@ -110,7 +112,7 @@ def discard(
     body: bytes,
 ) -> None:
     """
-    If the callback raises an exception in a thread, nack the message, without requeueing.
+    If the ``callback`` function raises an exception, nack the message, without requeueing.
     """
 
     def errback(exception: Exception) -> None:
@@ -130,7 +132,7 @@ def requeue(
     body: bytes,
 ) -> None:
     """
-    If the callback raises an exception in a thread, nack the message, requeueing it unless it was redelivered.
+    If the ``callback`` function raises an exception, nack the message, requeueing it unless it was redelivered.
     """
 
     def errback(exception: Exception) -> None:
