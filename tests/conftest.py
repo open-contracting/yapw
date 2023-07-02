@@ -46,9 +46,9 @@ def short_message(request):
 
 @pytest.fixture
 def short_reconnect_delay(request):
-    delay = Async.DELAY
-    Async.DELAY = 1
+    reconnect_delay = Async.RECONNECT_DELAY
+    Async.RECONNECT_DELAY = 1
     try:
         yield
     finally:
-        Async.DELAY = delay
+        Async.RECONNECT_DELAY = reconnect_delay

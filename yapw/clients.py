@@ -336,7 +336,7 @@ class Async(Base[pika.SelectConnection]):
     """
 
     # RabbitMQ takes about 10 seconds to restart.
-    DELAY = 15
+    RECONNECT_DELAY = 15
 
     def __init__(self, **kwargs: Any):
         """
@@ -406,16 +406,16 @@ class Async(Base[pika.SelectConnection]):
 
     def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
         """Retry, once the connection couldn't be established."""
-        logger.error("Connection failed, retrying in %ds: %s", self.DELAY, error)
-        self.connection.ioloop.call_later(self.DELAY, self.reconnect)
+        logger.error("Connection failed, retrying in %ds: %s", self.RECONNECT_DELAY, error)
+        self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
 
     def connection_close_callback(self, connection: pika.connection.Connection, reason: Exception) -> None:
         """Reconnect, if the connection was closed unexpectedly. Otherwise, stop the IO loop."""
         if self.stopping:
             self.connection.ioloop.stop()
         else:
-            logger.error("Connection closed, reconnecting in %ds: %s", self.DELAY, reason)
-            self.connection.ioloop.call_later(self.DELAY, self.reconnect)
+            logger.error("Connection closed, reconnecting in %ds: %s", self.RECONNECT_DELAY, reason)
+            self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
 
     def interrupt(self) -> None:
         """
