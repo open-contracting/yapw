@@ -12,7 +12,7 @@ Added
 -  :meth:`yapw.clients.Base.add_signal_handler`
 -  :meth:`yapw.clients.Base.interrupt`
 -  :meth:`yapw.clients.Base.state`
--  :meth:`yapw.clients.Blocking.channel_cancel`
+-  :meth:`yapw.clients.Blocking.channel_cancel_callback`
 -  :meth:`yapw.clients.Blocking.add_signal_handler`
 -  :meth:`yapw.clients.Blocking.interrupt`
 
