@@ -52,6 +52,32 @@ def test_connection_open_error(short_reconnect_delay, caplog):
     assert [(r.levelname, r.message) for r in caplog.records] == [("ERROR", "Connection failed, retrying in 1s: ")]
 
 
+def test_connection_close(short_reconnect_delay, caplog):
+    class Client(Async):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.overridden = False
+
+        def exchange_ready(self):
+            self.interrupt()
+            if not self.overridden:  # use the second branch of connection_close_callback() once
+                self.stopping = False
+                self.overridden = True
+
+    client = Client(durable=False, url=RABBIT_URL)
+    client.start()
+
+    assert client.channel.is_closed
+    assert client.connection.is_closed
+
+    assert len(caplog.records) == 3
+    assert [(r.levelname, r.message) for r in caplog.records] == [
+        ("WARNING", "Channel 1 was closed: (200, 'Normal shutdown')"),
+        ("ERROR", "Connection closed, reconnecting in 1s: (200, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: (200, 'Normal shutdown')"),
+    ]
+
+
 def test_exchangeok_default(short_timer, caplog):
     caplog.set_level(logging.DEBUG)
 

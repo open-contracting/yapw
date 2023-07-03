@@ -541,7 +541,7 @@ class Async(Base[AsyncioConnection]):
 
     def exchange_ready(self) -> None:
         """Override this method in subclasses, which is called once the exchange is declared."""
-        raise NotImplementedError
+        raise NotImplementedError  # causes StreamLostError if unimplemented
 
 
 class AsyncConsumer(Async):
