@@ -184,7 +184,7 @@ def test_requeue(message, short_timer, caplog):
 def test_publish(message, short_timer, caplog):
     caplog.set_level(logging.DEBUG)
 
-    consumer = async_consumer(on_message_callback=writer, queue="q")
+    consumer = async_consumer(on_message_callback=writer, queue="q", exchange_type="direct")
     consumer.start()
 
     assert consumer.channel.is_closed
