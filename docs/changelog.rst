@@ -7,7 +7,7 @@ Changelog
 Changed
 ~~~~~~~
 
--  :meth:`yapw.clients.Async.connection_open_error_callback`: Don't retry if the error is an authentication (e.g. incorrect username or password) or access denied (e.g. non-existent virtual host) error.
+-  :meth:`yapw.clients.Async.connection_open_error_callback`: Don't retry on authentication (e.g. incorrect username or password) or access denied (e.g. non-existent virtual host) errors.
 -  :meth:`yapw.clients.Async.connection_close_callback`: Change log level from ``ERROR`` to ``WARNING``.
 -  :meth:`yapw.clients.Async` log messages format errors with ``%r`` instead of ``%s``, to include information like the exception class.
 
