@@ -629,7 +629,7 @@ class AsyncConsumer(Async):
         Start consuming messages from the queue.
 
         Run the consumer callback in separate threads, to not block the IO loop. (This assumes the consumer callback is
-        :py:ref:`CPU-bound<running-blocking-code>`.) Add signal handlers to wait for threads to terminate.
+        :py:ref:`CPU-bound<_asyncio-handle-blocking>`.) Add signal handlers to wait for threads to terminate.
 
         The consumer callback is a function that accepts ``(state, channel, method, properties, body)`` arguments. The
         ``state`` argument contains thread-safe attributes. The rest of the arguments are the same as
