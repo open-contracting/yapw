@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sys
 from unittest.mock import patch
 from urllib.parse import urlsplit
@@ -42,14 +43,12 @@ def test_init_kwargs(connection):
     [
         (
             "amqp://invalid",
-            "Connection failed, retrying in 1s: AMQPConnectionWorkflowFailed: 1 exceptions in all; last exception - "
-            "gaierror(8, 'nodename nor servname provided, or not known'); first exception - None",
+            r"AMQPConnectionWorkflowFailed: 1 exceptions in all; last exception - gaierror\(",
         ),
         (
             "amqp://127.0.0.1:1024",
-            "Connection failed, retrying in 1s: AMQPConnectionError: (AMQPConnectionWorkflowFailed: 1 exceptions in "
-            "all; last exception - AMQPConnectorSocketConnectError: ConnectionRefusedError(61, 'Connection refused'); "
-            "first exception - None,)",
+            r"AMQPConnectionError: \(AMQPConnectionWorkflowFailed: 1 exceptions in all; last exception - "
+            r"AMQPConnectorSocketConnectError: ConnectionRefusedError\(",
         ),
     ],
 )
@@ -67,7 +66,9 @@ def test_connection_open_error_bad_host_or_port(url, expected, short_reconnect_d
     assert client.connection.is_closed
 
     assert len(caplog.records) == 1
-    assert [(r.levelname, r.message) for r in caplog.records] == [("ERROR", expected)]
+    for r in caplog.records:
+        assert r.levelname == "ERROR"
+        assert re.search(r"^Connection failed, retrying in 1s: " + expected, r.message)
 
 
 @pytest.mark.parametrize("auth", ["invalid:invalid", "guest:invalid"])

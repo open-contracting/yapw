@@ -458,6 +458,8 @@ class Async(Base[AsyncioConnection]):
             # A message has been logged, prior to calling interrupt().
             self.connection.ioloop.stop()
         else:
+            # For example: ConnectionClosedByBroker: (320) "CONNECTION_FORCED - broker forced connection closure with
+            # reason 'shutdown'"
             logger.warning("Connection closed, reconnecting in %ds: %r", self.RECONNECT_DELAY, reason)
             self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
 
