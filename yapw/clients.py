@@ -523,7 +523,7 @@ class Async(Base[AsyncioConnection]):
             logger.debug(
                 "Declaring %s %s exchange %s",
                 "durable" if self.durable else "transient",
-                ExchangeType[self.exchange_type].value,  # type: ignore # "Enum index should be a string"
+                self.exchange_type,
                 self.exchange,
             )
             self.channel.exchange_declare(
