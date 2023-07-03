@@ -11,17 +11,20 @@ from __future__ import annotations
 import functools
 import logging
 import signal
+import threading
 from collections import namedtuple
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 import pika
 import pika.exceptions
+from pika.adapters.asyncio_connection import AsyncioConnection
 from pika.exchange_type import ExchangeType
 
 from yapw.decorators import halt
-from yapw.ossignal import install_signal_handlers, signal_names
+from yapw.ossignal import signal_names
 from yapw.types import ConsumerCallback, Decode, Decorator, Encode, State
 from yapw.util import basic_publish_debug_args, basic_publish_kwargs, default_decode, default_encode
 
@@ -37,10 +40,10 @@ def _on_message(
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
-    args: tuple[ThreadPoolExecutor, Decorator, Decode, ConsumerCallback, State[Any]],
+    args: tuple[Callable[..., None], Decorator, Decode, ConsumerCallback, State[Any]],
 ) -> None:
-    (executor, decorator, decode, callback, state) = args
-    executor.submit(decorator, decode, callback, state, channel, method, properties, body)
+    (submit, decorator, decode, callback, state) = args
+    submit(decorator, decode, callback, state, channel, method, properties, body)
 
 
 class Base(Generic[T]):
@@ -122,8 +125,6 @@ class Base(Generic[T]):
         self.delivery_mode = 2 if self.durable else 1
         #: The consumer's tag.
         self.consumer_tag = ""
-        #: The thread pool executor.
-        self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.exchange}")
 
     def format_routing_key(self, routing_key: str) -> str:
         """
@@ -150,41 +151,30 @@ class Base(Generic[T]):
         self.channel.basic_publish(**keywords)
         logger.debug(*basic_publish_debug_args(self.channel, message, keywords))
 
-    def start_consumer(self, callback: ConsumerCallback, decorator: Decorator, queue_name: str) -> None:
+    # Since Python 3.11, asyncio handles SIGINT, to avoid internals being interrupted.
+    # https://docs.python.org/3/library/asyncio-runner.html#handling-keyboard-interruption
+    #
+    # Also, if SIGINT were to reach asyncio, the IO loop would stop and new callbacks (like basic_cancel) wouldn't run.
+    # To send requests that were buffered by Pika to RabbitMQ, we would need to restart the IO loop.
+    # https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_forever
+    #
+    # By adding our own handlers, SIGINT never reaches asyncio.
+    # https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.add_signal_handler
+    def add_signal_handlers(self, handler: Callable[..., object]) -> None:
         """
-        Start consuming messages from the queue.
-
-        Run the consumer callback in separate threads, to not block the IO loop.
-
-        The consumer callback is a function that accepts ``(state, channel, method, properties, body)`` arguments. The
-        ``state`` argument contains thread-safe attributes. The rest are the same as Pika's ``basic_consume``.
+        Add handlers for the SIGTERM and SIGINT signals, if the current thread is the main thread.
         """
-        self.channel.add_on_cancel_callback(self.channel_cancel)
+        if threading.current_thread() is threading.main_thread():
+            self.add_signal_handler(signal.SIGTERM, handler)
+            self.add_signal_handler(signal.SIGINT, handler)
 
-        cb = functools.partial(_on_message, args=(self.executor, decorator, self.decode, callback, self.state))
-
-        self.consumer_tag = self.channel.basic_consume(queue_name, cb)
-        logger.debug("Consuming messages on channel %s from queue %s", self.channel.channel_number, queue_name)
-
-    # https://www.rabbitmq.com/consumer-cancel.html
-    def channel_cancel(self, method: Any) -> Any:  # different method types for each channel class
+    def add_signal_handler(self, signalnum: int, handler: Callable[..., object]) -> None:
         """
-        Close the channel. (RabbitMQ uses ``basic.cancel`` if a channel is consuming a queue and the queue is deleted.)
+        Override this method in subclasses to add a handler for a signal (e.g. using :func:`signal.signal` or
+        :meth:`asyncio.loop.add_signal_handler`). The handler should remove signal handlers (in order to ignore
+        duplicate signals), log a message with a level of ``INFO``, and call :meth:`yapw.clients.base.interrupt`.
         """
-        logger.error("Consumer was cancelled by broker, stopping: %r", method)
-        if hasattr(self.channel, "stop_consuming"):
-            self.channel.stop_consuming()
-        else:
-            if TYPE_CHECKING:  # can't use TypeGuard, as first branch uses channel and this branch uses connection
-                assert isinstance(self.connection, pika.SelectConnection)
-            # Keep channel open until threads terminate. Ensure the channel closes after any thread-safe callbacks.
-            self.executor.shutdown(cancel_futures=True)
-            self.connection.ioloop.call_later(0, self.channel.close)
-
-    def _on_signal(self, signum: int, frame: FrameType | None) -> None:
-        install_signal_handlers(signal.SIG_IGN)
-        logger.info("Received %s, shutting down gracefully", signal_names[signum])
-        self.interrupt()
+        raise NotImplementedError
 
     def interrupt(self) -> None:
         """
@@ -214,7 +204,7 @@ class Base(Generic[T]):
 
 class Blocking(Base[pika.BlockingConnection]):
     """
-    Uses Pika's `BlockingConnection adapter <https://pika.readthedocs.io/en/stable/modules/adapters/blocking.html>`__.
+    Uses Pika's :class:`BlockingConnection adapter<pika.adapters.blocking_connection.BlockingConnection>`.
     """
 
     def __init__(self, **kwargs: Any):
@@ -260,7 +250,7 @@ class Blocking(Base[pika.BlockingConnection]):
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
     def consume(
         self,
-        callback: ConsumerCallback,
+        on_message_callback: ConsumerCallback,
         queue: str,
         routing_keys: list[str] | None = None,
         decorator: Decorator = halt,
@@ -269,15 +259,16 @@ class Blocking(Base[pika.BlockingConnection]):
         """
         Declare a queue, bind it to the exchange with the routing keys, and start consuming messages from that queue.
 
-        If no routing keys are provided, the queue is bound to the exchange using its name as the routing key.
+        If no ``routing_keys`` are provided, the ``queue`` is bound to the exchange using its name as the routing key.
 
-        Install signal handlers to wait for threads to terminate.
+        Run the consumer callback in separate threads, to not block the IO loop. Add signal handlers to wait for
+        threads to terminate.
 
-        .. seealso::
+        The consumer callback is a function that accepts ``(state, channel, method, properties, body)`` arguments. The
+        ``state`` argument contains thread-safe attributes. The rest of the arguments are the same as
+        :meth:`pika.channel.Channel.basic_consume`'s ``on_message_callback``.
 
-           :meth:`yapw.clients.Base.start_consumer`
-
-        :param callback: the consumer callback
+        :param on_message_callback: the consumer callback
         :param queue: the queue's name
         :param routing_keys: the queue's routing keys
         :param decorator: the decorator of the consumer callback
@@ -286,10 +277,18 @@ class Blocking(Base[pika.BlockingConnection]):
         self.declare_queue(queue, routing_keys, arguments)
         queue_name = self.format_routing_key(queue)
 
-        self.start_consumer(callback, decorator, queue_name)
+        self.channel.add_on_cancel_callback(self.channel_cancel_callback)
 
-        # The callback calls stop_consuming(), so install it after start_consumer() sets consumer_tag.
-        install_signal_handlers(self._on_signal)
+        self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{queue}")
+        cb = functools.partial(
+            _on_message, args=(self.executor.submit, decorator, self.decode, on_message_callback, self.state)
+        )
+
+        self.consumer_tag = self.channel.basic_consume(queue_name, cb)
+        logger.debug("Consuming messages on channel %s from queue %s", self.channel.channel_number, queue_name)
+
+        # The signal callback calls channel.stop_consuming(), so add handlers after setting consumer_tag.
+        self.add_signal_handlers(self._on_signal_callback)
 
         try:
             self.channel.start_consuming()
@@ -298,11 +297,27 @@ class Blocking(Base[pika.BlockingConnection]):
             self.executor.shutdown(cancel_futures=True)
             self.connection.close()
 
-    def close(self) -> None:
+    def channel_cancel_callback(self, method: pika.spec.Basic.Cancel) -> Any:
         """
-        Close the connection: for example, after sending messages from a simple publisher.
+        Cancel the consumer, which causes the threads to terminate and the connection to close.
+
+        RabbitMQ uses `basic.cancel <https://www.rabbitmq.com/consumer-cancel.html>`__ if a channel is consuming a
+        queue and the queue is deleted.
         """
-        self.connection.close()
+        logger.error("Consumer was cancelled by broker, stopping: %r", method)
+        self.channel.stop_consuming(self.consumer_tag)
+
+    def add_signal_handler(self, signalnum: int, handler: Callable[..., object]) -> None:
+        """
+        Add a handler for a signal.
+        """
+        signal.signal(signalnum, handler)
+
+    def _on_signal_callback(self, signalnum: int, frame: FrameType | None) -> None:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        logger.info("Received %s, shutting down gracefully", signal_names[signalnum])
+        self.interrupt()
 
     def interrupt(self) -> None:
         """
@@ -310,29 +325,38 @@ class Blocking(Base[pika.BlockingConnection]):
         """
         self.channel.stop_consuming(self.consumer_tag)
 
+    def close(self) -> None:
+        """
+        Close the connection: for example, after sending messages from a simple publisher.
+        """
+        self.connection.close()
 
-# https://github.com/pika/pika/blob/main/examples/asynchronous_consumer_example.py
-# https://github.com/pika/pika/blob/main/docs/examples/tornado_consumer.rst
-# https://github.com/pika/pika/issues/727#issuecomment-213644075
-class Async(Base[pika.SelectConnection]):
+
+class Async(Base[AsyncioConnection]):
     """
-    Uses Pika's `SelectConnection adapter <https://pika.readthedocs.io/en/stable/modules/adapters/select.html>`__.
-    Reconnects to RabbitMQ if the connection is closed unexpectedly or can't be established.
+    Uses Pika's :class:`AsyncioConnection adapter<pika.adapters.asyncio_connection.AsyncioConnection>`. Reconnects to
+    RabbitMQ if the connection is closed unexpectedly or can't be established.
 
-    By calling :meth:`~yapw.clients.Async.start`, this client connects to RabbitMQ, installs signal handlers, and
-    starts the IO loop. Once the IO loop starts, it creates a channel, sets the prefetch count, and declares the
-    exchange (unless using the default exchange).
-
-    One the exchange is declared, the callback calls :meth:`~yapw.clients.Async.exchange_ready`. You must define this
-    method in a subclass, to do any work you need.
+    Calling :meth:`~yapw.clients.Async.start` connects to RabbitMQ, add signal handlers, and starts the IO loop.
 
     The signal handlers cancel the consumer, if consuming and if the channel is open. Otherwise, they wait for threads
-    to terminate and close the connection. This graceful shutdown also occurs if the broker cancels the consumer or if
-    the channel closes for any another reason.
+    to terminate and close the connection. This also occurs if the broker cancels the consumer or if the channel closes
+    for any other reason.
+
+    Once the IO loop starts, the client creates a channel, sets the prefetch count, and declares the
+    exchange. Once the exchange is declared, the :meth:`~yapw.clients.Async.exchange_declareok_callback` calls
+    :meth:`~yapw.clients.Async.exchange_ready`. You must define this method in a subclass, to do any work you need.
 
     If the connection becomes `blocked <https://www.rabbitmq.com/connection-blocked.html>`__ or unblocked, the
-    ``blocked`` attribute is set to ``True`` or ``False``, respectively. Your code can use this attribute to, for
-    example, pause, buffer or reschedule deliveries.
+    client's ``blocked`` attribute is set to ``True`` or ``False``, respectively. Your code can use this attribute to,
+    for example, pause, buffer or reschedule deliveries.
+
+    If you subclass this client and add and mutate any attributes, override :meth:`~yapw.clients.Async.reset`.
+
+    .. seealso::
+
+       -  If your code runs subprocesses, be familiar with asyncio's :py:ref:`asyncio-subprocess`.
+       -  If your code configures logging, see :py:ref:`blocking-handlers`.
     """
 
     # RabbitMQ takes about 10 seconds to restart.
@@ -344,27 +368,35 @@ class Async(Base[pika.SelectConnection]):
         """
         super().__init__(**kwargs)
 
+        #: The thread pool executor.
+        self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.thread_name_infix}")
         #: Whether the connection is `blocked <https://www.rabbitmq.com/connection-blocked.html>`__.
         self.blocked = False
         #: Whether the client is being stopped deliberately.
         self.stopping = False
 
+    @property
+    def thread_name_infix(self) -> str:
+        """
+        Return the exchange name to use as part of the thread name.
+        """
+        return self.exchange
+
     def start(self) -> None:
         """
-        :meth:`Connect<yapw.clients.Async.connect>` to RabbitMQ and start the IO loop.
-
-        Install signal handlers to stop the IO loop correctly.
+        :meth:`Connect<yapw.clients.Async.connect>` to RabbitMQ, add signal handlers, and start the IO loop.
         """
         self.connect()
-        install_signal_handlers(self._on_signal)
-        self.connection.ioloop.start()
+        self.add_signal_handlers(self._on_signal_callback)
+        self.connection.ioloop.call_soon_threadsafe(print)
+        self.connection.ioloop.run_forever()
 
     def connect(self) -> None:
         """
         Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange, unless using the
         default exchange.
         """
-        self.connection = pika.SelectConnection(
+        self.connection = AsyncioConnection(
             self.parameters,
             on_open_callback=self.connection_open_callback,
             on_open_error_callback=self.connection_open_error_callback,
@@ -398,11 +430,18 @@ class Async(Base[pika.SelectConnection]):
         if self.stopping:
             self.connection.ioloop.stop()
         else:
-            # Reset mutable attributes.
-            self.blocked = False
-            self.consumer_tag = ""
-            self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.exchange}")
+            self.reset()
             self.connect()
+
+    def reset(self) -> None:
+        """
+        Reset the client's state, before reconnecting.
+
+        Override this method in subclasses, if your subclass adds and mutates any attributes.
+        """
+        self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.thread_name_infix}")
+        self.blocked = False
+        self.consumer_tag = ""
 
     def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
         """Retry, once the connection couldn't be established."""
@@ -417,21 +456,31 @@ class Async(Base[pika.SelectConnection]):
             logger.error("Connection closed, reconnecting in %ds: %s", self.RECONNECT_DELAY, reason)
             self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
 
+    def add_signal_handler(self, signalnum: int, handler: Callable[..., object]) -> None:
+        """
+        Add a handler for a signal.
+        """
+        self.connection.ioloop.add_signal_handler(signalnum, functools.partial(handler, signalnum=signalnum))
+
+    def _on_signal_callback(self, signalnum: int) -> None:
+        if not self.stopping:  # remove_signal_handler() is too slow
+            self.connection.ioloop.remove_signal_handler(signal.SIGTERM)
+            self.connection.ioloop.remove_signal_handler(signal.SIGINT)
+            logger.info("Received %s, shutting down gracefully", signal_names[signalnum])
+            self.interrupt()
+
     def interrupt(self) -> None:
         """
         `Cancel <https://www.rabbitmq.com/consumers.html#unsubscribing>`__ the consumer if consuming and if the channel
         is open. Otherwise, wait for threads to terminate and close the connection.
         """
-        # Signals handlers are installed, so the IO loop is not stopped. If there were no signal handlers, the IO
-        # loop would have been stopped, and would need to restart to send buffered requests to RabbitMQ.
-
         # Change the client's state to stopping, to prevent infinite reconnection.
         self.stopping = True
 
         if self.consumer_tag and not self.channel.is_closed and not self.channel.is_closing:
             self.channel.basic_cancel(self.consumer_tag, self.channel_cancelok_callback)
         elif not self.connection.is_closed and not self.connection.is_closing:
-            # The channel is already closed. Free any resources without waiting for threads.
+            # The channel is already closed. Free any resources, without waiting for threads.
             self.executor.shutdown(wait=False, cancel_futures=True)
             self.connection.close()
 
@@ -457,12 +506,14 @@ class Async(Base[pika.SelectConnection]):
     def channel_close_callback(self, channel: pika.channel.Channel, reason: Exception) -> None:
         """
         Close the connection, once the client cancelled the consumer or once RabbitMQ closed the channel due to, e.g.,
-        redeclaring exchanges with inconsistent parameters. Log a warning, in case it was the latter.
+        redeclaring exchanges with inconsistent parameters.
+
+        A warning is logged, in case it was the latter.
         """
         logger.warning("Channel %i was closed: %s", channel, reason)
         # pika's connection.close() closes all channels. It can update the connection state before this callback runs.
         if not self.connection.is_closed and not self.connection.is_closing:
-            # The channel is already closed. Free any resources without waiting for threads.
+            # The channel is already closed. Free any resources, without waiting for threads.
             self.executor.shutdown(wait=False, cancel_futures=True)
             self.connection.close()
 
@@ -489,7 +540,7 @@ class Async(Base[pika.SelectConnection]):
         self.exchange_ready()
 
     def exchange_ready(self) -> None:
-        """Override this method in subclasses."""
+        """Override this method in subclasses, which is called once the exchange is declared."""
         raise NotImplementedError
 
 
@@ -498,18 +549,19 @@ class AsyncConsumer(Async):
     An asynchronous consumer, extending :class:`~yapw.clients.Async`.
 
     After calling :meth:`~yapw.clients.Async.start`, this client declares the ``queue``, binds it to the exchange with
-    the ``routing_keys``, and starts consuming messages from that queue (see :meth:`yapw.clients.Base.start_consumer`),
-    using the consumer ``callback`` and its ``decorator``.
+    the ``routing_keys``, and starts consuming messages from that queue, using the ``on_message_callback``.
 
-    If no ``routing_keys`` are provided, the ``queue`` is bound to the exchange using its name as the routing key.
+    The ``on_message_callback`` and ``queue`` keyword arguments are required. If no ``routing_keys`` are provided, the
+    ``queue`` is bound to the exchange using its name as the routing key.
 
-    The ``callback`` and ``queue`` keyword arguments are required.
+    The :meth:`pika.channel.Channel.basic_consume` call sets its callback to an empty method,
+    :meth:`~yapw.clients.AsyncConsumer.channel_consumeok_callback`. Define this method in a subclass, if needed.
     """
 
     def __init__(
         self,
         *,
-        callback: ConsumerCallback,
+        on_message_callback: ConsumerCallback,
         queue: str,
         routing_keys: list[str] | None = None,
         decorator: Decorator = halt,
@@ -517,14 +569,16 @@ class AsyncConsumer(Async):
         **kwargs: Any,
     ) -> None:
         """
-        :param callback: the consumer callback
+        .. seealso::
+
+           :meth:`yapw.clients.AsyncConsumer.consume`
+
+        :param on_message_callback: the consumer callback
         :param queue: the queue's name
         :param routing_keys: the queue's routing keys
         :param decorator: the decorator of the consumer callback
         :param arguments: the ``arguments`` parameter to the ``queue_declare`` method
         """
-        super().__init__(**kwargs)
-
         #: The queue's name.
         self.queue = queue
         #: The queue's routing keys.
@@ -532,9 +586,19 @@ class AsyncConsumer(Async):
         #: The ``arguments`` parameter to the ``queue_declare`` method.
         self.arguments = arguments
         #: The consumer callback.
-        self.callback = callback
+        self.on_message_callback = on_message_callback
         #: The decorator of the consumer callback.
         self.decorator = decorator
+
+        # self.queue must be set for the thread_name_infix() call in the super() method.
+        super().__init__(**kwargs)
+
+    @property
+    def thread_name_infix(self) -> str:
+        """
+        Return the queue name to use as part of the thread name.
+        """
+        return self.queue
 
     def exchange_ready(self) -> None:
         """Declare the queue, once the exchange is declared."""
@@ -553,9 +617,46 @@ class AsyncConsumer(Async):
         if index < len(self.routing_keys):
             self._bind_queue(queue_name, index)
         else:
-            self.start_consumer(self.callback, self.decorator, queue_name)
+            self.consume(self.on_message_callback, self.decorator, queue_name)
 
     def _bind_queue(self, queue_name: str, index: int) -> None:
         routing_key = self.format_routing_key(self.routing_keys[index])
         cb = functools.partial(self.queue_bindok_callback, queue_name=queue_name, index=index + 1)
         self.channel.queue_bind(queue=queue_name, exchange=self.exchange, routing_key=routing_key, callback=cb)
+
+    def consume(self, on_message_callback: ConsumerCallback, decorator: Decorator, queue_name: str) -> None:
+        """
+        Start consuming messages from the queue.
+
+        Run the consumer callback in separate threads, to not block the IO loop. (This assumes the consumer callback is
+        :py:ref:`CPU-bound<running-blocking-code>`.) Add signal handlers to wait for threads to terminate.
+
+        The consumer callback is a function that accepts ``(state, channel, method, properties, body)`` arguments. The
+        ``state`` argument contains thread-safe attributes. The rest of the arguments are the same as
+        :meth:`pika.channel.Channel.basic_consume`'s ``on_message_callback``.
+        """
+        self.channel.add_on_cancel_callback(self.channel_cancel_callback)
+
+        submit = functools.partial(self.connection.ioloop.run_in_executor, self.executor)
+        cb = functools.partial(_on_message, args=(submit, decorator, self.decode, on_message_callback, self.state))
+
+        self.consumer_tag = self.channel.basic_consume(queue_name, cb, callback=self.channel_consumeok_callback)
+        logger.debug("Consuming messages on channel %s from queue %s", self.channel.channel_number, queue_name)
+
+    def channel_cancel_callback(self, method: Any) -> Any:  # https://github.com/qubidt/types-pika/pull/15
+        """
+        Close the channel.
+
+        RabbitMQ uses `basic.cancel <https://www.rabbitmq.com/consumer-cancel.html>`__ if a channel is consuming a
+        queue and the queue is deleted.
+        """
+        logger.error("Consumer was cancelled by broker, stopping: %r", method)
+        # Keep channel open until threads terminate. Ensure the channel closes after any thread-safe callbacks.
+        self.executor.shutdown(cancel_futures=True)
+        self.connection.ioloop.call_later(0, self.channel.close)
+
+    def channel_consumeok_callback(self, method: pika.frame.Method[pika.spec.Basic.ConsumeOk]) -> None:
+        """
+        Override this method in subclasses to perform any other work, once the consumer is started.
+        """
+        pass

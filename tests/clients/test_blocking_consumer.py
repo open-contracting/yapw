@@ -47,7 +47,7 @@ def test_decode_valid(short_message, caplog):
 def test_decode_invalid(short_message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = blocking(decode=functools.partial(decode, 10))
+    consumer = blocking(decode=functools.partial(decode, 10))  # IndexError
     consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(ack_warner, "q")
 

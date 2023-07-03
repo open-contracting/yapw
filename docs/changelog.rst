@@ -9,10 +9,13 @@ Added
 
 -  :class:`yapw.clients.Async`
 -  :class:`yapw.clients.AsyncConsumer`
--  :meth:`yapw.clients.Base.start_consumer`
--  :meth:`yapw.clients.Base.channel_cancel`
+-  :meth:`yapw.clients.Base.add_signal_handlers`
+-  :meth:`yapw.clients.Base.add_signal_handler`
 -  :meth:`yapw.clients.Base.interrupt`
 -  :meth:`yapw.clients.Base.state`
+-  :meth:`yapw.clients.Blocking.channel_cancel`
+-  :meth:`yapw.clients.Blocking.add_signal_handler`
+-  :meth:`yapw.clients.Blocking.interrupt`
 
 Changed
 ~~~~~~~
@@ -22,9 +25,11 @@ Changed
 -  Use subclasses instead of mixins, to share logic between synchronous and asynchronous clients with less code.
 -  Move ``__init__`` arguments from other classes to the :class:`~yapw.clients.Base` class.
 -  Move the ``publish`` method from the  :class:`~yapw.clients.Blocking` class to the :class:`~yapw.clients.Base` class.
--  Merge the ``yapw.clients.Publisher`` and ``yapw.clients.Threaded`` classes into the :class:`~yapw.clients.Blocking` class.
--  Replace ``Durable`` and ``Transient`` with a ``durable`` keyword argument.
+-  Merge the ``Publisher`` and ``Threaded`` classes into the :class:`~yapw.clients.Blocking` class.
+-  Merge the ``Durable`` and ``Transient`` classes into the :class:`~yapw.clients.Blocking` class, as a ``durable`` keyword argument.
 -  Rename the ``yapw.methods.blocking`` module to the :mod:`yapw.methods` module.
+-  Rename the ``callback`` positional argument for the consumer callback to ``on_message_callback``, to avoid ambiguity.
+-  Move and rename ``install_signal_handlers`` from ``yapw.ossignal`` to :class:`yapw.clients.Base.add_signal_handlers` class.
 -  Move the ``default_decode`` method to the :mod:`yapw.util` module.
 
 Non-breaking changes:
@@ -33,7 +38,6 @@ Non-breaking changes:
 -  The signal handlers for the :class:`~yapw.clients.Blocking` class are installed before the consumer starts, instead of during initialization.
 -  Use callbacks to communicate with the main thread from other threads, instead of sending SIGUSR1 or SIGUSR2 signals.
 -  Do not catch the ``pika.exceptions.ConnectionClosedByBroker`` exception when using the blocking connection adapter (can't be caught).
--  The thread pool's thread names are prefixed by the exchange name, instead of by the queue name.
 -  Drop Python 3.7, 3.8, 3.9, 3.10 support.
 
 0.0.13 (2022-01-28)

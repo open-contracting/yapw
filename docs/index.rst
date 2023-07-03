@@ -61,8 +61,8 @@ Publish messages outside a consumer callback
 
          class Publisher(Async):
              def exchange_ready(self):
-                self.publish({"message": "value"}, routing_key="messages")
-                self.interrupt()  # only if you want to stop the client
+                 self.publish({"message": "value"}, routing_key="messages")
+                 self.interrupt()  # only if you want to stop the client
 
 
          publisher = Publisher(url="amqp://user:pass@127.0.0.1", exchange="myexchange")
@@ -128,7 +128,7 @@ Consume messages
              url="amqp://user:pass@127.0.0.1",
              exchange="myexchange",
              prefetch_count=5,
-             callback=callback,
+             on_message_callback=callback,
              queue="messages",
              decorator=discard,
          )
@@ -161,7 +161,7 @@ To manually set the binding keys:
 
          consumer = AsyncConsumer(
              # ...
-             callback=callback,
+             on_message_callback=callback,
              queue="messages",
              routing_keys=["a", "b"],
              decorator=discard
@@ -171,7 +171,7 @@ yapw uses a thread pool to run the consumer callback in separate threads.
 
 .. seealso::
 
-   :meth:`yapw.clients.Base.start_consumer` for details on the consumer callback function signature.
+   :mod:`yapw.clients` for details on the consumer callback function signature.
 
 Channel methods
 ~~~~~~~~~~~~~~~
@@ -180,7 +180,7 @@ The :func:`~yapw.methods.ack`, :func:`~yapw.methods.nack` and  :func:`~yapw.meth
 
 .. note::
 
-   Thread-safe helper functions have not yet been defined for all relevant `channel methods <https://pika.readthedocs.io/en/stable/modules/channel.html>`__.
+   Thread-safe helper functions have not yet been defined for all relevant :class:`channel methods<pika.channel.Channel>`.
 
 Encoding and decoding
 ~~~~~~~~~~~~~~~~~~~~~
@@ -235,6 +235,6 @@ Signal handling
 
 Every client shuts down gracefully if it receives the ``SIGTERM`` (system exit) or ``SIGINT`` (keyboard interrupt) signals. It stops consuming messages, waits for threads to terminate, and closes the RabbitMQ connection.
 
-Signal handlers are installed only if a client is instantiated in the main thread, because `only the main thread is allowed to set a new signal handler <https://docs.python.org/3/library/signal.html#signals-and-threads>`__. An example of a non-main thread is a web request.
+Signal handlers are added only if a client is instantiated in the main thread, because `only the main thread is allowed to set a new signal handler <https://docs.python.org/3/library/signal.html#signals-and-threads>`__. An example of a non-main thread is a web request.
 
 Copyright (c) 2021 Open Contracting Partnership, released under the BSD license

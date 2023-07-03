@@ -90,7 +90,7 @@ def test_decode_invalid(caplog):
 
     discard(default_decode, passes, state, "channel", method, properties, b"invalid")
 
-    state.connection.ioloop.add_callback_threadsafe.assert_called_once_with(state.interrupt)
+    state.connection.ioloop.call_soon_threadsafe.assert_called_once_with(state.interrupt)
 
     assert len(caplog.records) == 2
     assert caplog.records[0].levelname == "DEBUG"

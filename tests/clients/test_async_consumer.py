@@ -30,24 +30,28 @@ def async_consumer(**kwargs):
     return AsyncConsumer(durable=False, url=RABBIT_URL, exchange="yapw_test", **kwargs)
 
 
-@patch("pika.SelectConnection")
+@patch("yapw.clients.AsyncioConnection")
 def test_init_default(connection):
-    client = AsyncConsumer(callback=raiser, queue="q")
+    client = AsyncConsumer(on_message_callback=raiser, queue="q")
 
-    assert client.callback == raiser
+    assert client.on_message_callback == raiser
     assert client.queue == "q"
     assert client.routing_keys == ["q"]
     assert client.decorator == halt
     assert client.arguments is None
 
 
-@patch("pika.SelectConnection")
+@patch("yapw.clients.AsyncioConnection")
 def test_init_kwargs(connection):
     client = AsyncConsumer(
-        callback=raiser, queue="q", routing_keys=["r", "k"], decorator=discard, arguments={"x-max-priority": 1}
+        on_message_callback=raiser,
+        queue="q",
+        routing_keys=["r", "k"],
+        decorator=discard,
+        arguments={"x-max-priority": 1},
     )
 
-    assert client.callback == raiser
+    assert client.on_message_callback == raiser
     assert client.queue == "q"
     assert client.routing_keys == ["r", "k"]
     assert client.decorator == discard
@@ -63,7 +67,7 @@ def test_shutdown(signum, signame, message, caplog):
 
     Timer(DELAY, functools.partial(kill, signum)).start()
 
-    consumer = async_consumer(callback=sleeper, queue="q")
+    consumer = async_consumer(on_message_callback=sleeper, queue="q")
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -79,7 +83,7 @@ def test_shutdown(signum, signame, message, caplog):
 
 
 def test_decode_valid(short_message, short_timer, caplog):
-    consumer = async_consumer(callback=ack_warner, queue="q", decode=functools.partial(decode, 0))
+    consumer = async_consumer(on_message_callback=ack_warner, queue="q", decode=functools.partial(decode, 0))
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -95,7 +99,9 @@ def test_decode_valid(short_message, short_timer, caplog):
 def test_decode_invalid(short_message, timer, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = async_consumer(callback=ack_warner, queue="q", decode=functools.partial(decode, 10))  # IndexError
+    consumer = async_consumer(
+        on_message_callback=ack_warner, queue="q", decode=functools.partial(decode, 10)  # IndexError
+    )
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -111,7 +117,7 @@ def test_decode_invalid(short_message, timer, caplog):
 def test_decode_raiser(message, timer, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = async_consumer(callback=ack_warner, queue="q", decode=raiser)
+    consumer = async_consumer(on_message_callback=ack_warner, queue="q", decode=raiser)
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -127,7 +133,7 @@ def test_decode_raiser(message, timer, caplog):
 def test_halt(message, timer, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = async_consumer(callback=raiser, queue="q")
+    consumer = async_consumer(on_message_callback=raiser, queue="q")
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -143,7 +149,7 @@ def test_halt(message, timer, caplog):
 def test_discard(message, short_timer, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = async_consumer(callback=raiser, queue="q", decorator=discard)
+    consumer = async_consumer(on_message_callback=raiser, queue="q", decorator=discard)
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -160,7 +166,7 @@ def test_discard(message, short_timer, caplog):
 def test_requeue(message, short_timer, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = async_consumer(callback=raiser, queue="q", decorator=requeue)
+    consumer = async_consumer(on_message_callback=raiser, queue="q", decorator=requeue)
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -178,7 +184,7 @@ def test_requeue(message, short_timer, caplog):
 def test_publish(message, short_timer, caplog):
     caplog.set_level(logging.DEBUG)
 
-    consumer = async_consumer(callback=writer, queue="q")
+    consumer = async_consumer(on_message_callback=writer, queue="q")
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -201,29 +207,36 @@ def test_publish(message, short_timer, caplog):
 
 def test_consume_declares_queue(caplog):
     with timed(DELAY):
-        declarer = async_consumer(callback=raiser, queue="q")
+        declarer = async_consumer(on_message_callback=raiser, queue="q")
         declarer.start()
 
     publisher = blocking()
     publisher.publish({"message": "value"}, "q")
 
     with timed(DELAY):
-        consumer = async_consumer(callback=nack_warner, queue="q")
+        consumer = async_consumer(on_message_callback=nack_warner, queue="q")
         consumer.start()
 
     publisher.channel.queue_purge("yapw_test_q")
     publisher.close()
 
+    start, end = 1, -1
+
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records[1:-1]) > 1
-    assert all(r.levelname == "WARNING" and r.message == "{'message': 'value'}" for r in caplog.records[1:-1])
+    assert len(caplog.records[start:end]) > 1
+    assert all(r.levelname == "WARNING" and r.message == "{'message': 'value'}" for r in caplog.records[start:end])
+
+    for i, j in ((0, start), (end, len(caplog.records))):
+        assert [(r.levelname, r.message) for r in caplog.records[i:j]] == [
+            ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
+        ]
 
 
 def test_consume_declares_queue_routing_keys(caplog):
     with timed(DELAY):
-        declarer = async_consumer(callback="raiser", queue="q", routing_keys=["r", "k"])
+        declarer = async_consumer(on_message_callback="raiser", queue="q", routing_keys=["r", "k"])
         declarer.start()
 
     publisher = blocking()
@@ -231,7 +244,7 @@ def test_consume_declares_queue_routing_keys(caplog):
     publisher.publish({"message": "k"}, "k")
 
     with timed(DELAY):
-        consumer = async_consumer(callback=ack_warner, queue="q", routing_keys=["r", "k"])
+        consumer = async_consumer(on_message_callback=ack_warner, queue="q", routing_keys=["r", "k"])
         consumer.start()
 
     publisher.channel.queue_purge("yapw_test_q")
@@ -240,8 +253,10 @@ def test_consume_declares_queue_routing_keys(caplog):
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
 
-    assert len(caplog.records[1:-1]) == 2
-    assert [(r.levelname, r.message) for r in caplog.records[1:-1]] == [
+    assert len(caplog.records) == 4
+    assert [(r.levelname, r.message) for r in caplog.records] == [
+        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
         ("WARNING", "{'message': 'r'}"),
         ("WARNING", "{'message': 'k'}"),
+        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
     ]

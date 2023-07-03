@@ -19,7 +19,7 @@ def callback(state, channel, method, properties, body):
 
 def main():
     kwargs = {"durable": False, "exchange": "yapw_development"}
-    consumer_kwargs = {"callback": callback, "queue": "raise", "decorator": requeue}
+    consumer_kwargs = {"on_message_callback": callback, "queue": "raise", "decorator": requeue}
     if len(sys.argv) > 1 and sys.argv[1] == "Blocking":
         print("Blocking consumer")
         client = Blocking(**kwargs)

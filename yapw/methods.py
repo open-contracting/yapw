@@ -82,7 +82,6 @@ def add_callback_threadsafe(connection: Any, callback: Any) -> None:
     """
     # One branch per adapter.
     if hasattr(connection, "ioloop"):
-        caller = connection.ioloop
+        connection.ioloop.call_soon_threadsafe(callback)
     else:
-        caller = connection
-    caller.add_callback_threadsafe(callback)
+        connection.add_callback_threadsafe(callback)

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 RABBIT_URL = os.getenv("TEST_RABBIT_URL", "amqp://127.0.0.1")
 
 
-@patch("pika.SelectConnection")
+@patch("yapw.clients.AsyncioConnection")
 def test_init_default(connection):
     Async().connect()
 
@@ -22,7 +22,7 @@ def test_init_default(connection):
     assert connection.call_args[0][0].blocked_connection_timeout == 1800
 
 
-@patch("pika.SelectConnection")
+@patch("yapw.clients.AsyncioConnection")
 def test_init_kwargs(connection):
     Async(
         url="https://host:1234/%2Fv?blocked_connection_timeout=10",
@@ -37,6 +37,7 @@ def test_init_kwargs(connection):
 
 def test_connection_open_error(short_reconnect_delay, caplog):
     caplog.set_level(logging.CRITICAL, logger="pika")
+    caplog.set_level(logging.INFO, logger="asyncio")
     caplog.set_level(logging.DEBUG)
 
     client = Async(durable=False, url="amqp://nonexistent")
