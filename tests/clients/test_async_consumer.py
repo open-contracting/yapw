@@ -78,7 +78,7 @@ def test_shutdown(signum, signame, message, caplog):
         ("INFO", "Sleep"),
         ("INFO", f"Received {signame}, shutting down gracefully"),
         ("INFO", "Wake!"),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'"),
     ]
 
 
@@ -92,7 +92,7 @@ def test_decode_valid(short_message, short_timer, caplog):
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message) for r in caplog.records] == [
         ("WARNING", "1"),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'"),
     ]
 
 
@@ -110,7 +110,7 @@ def test_decode_invalid(short_message, timer, caplog):
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
         ("ERROR", f"{encode(short_message)} can't be decoded, shutting down gracefully", False),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'", True),
     ]
 
 
@@ -126,7 +126,7 @@ def test_decode_raiser(message, timer, caplog):
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
         ("ERROR", f"{encode(message)} can't be decoded, shutting down gracefully", False),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'", True),
     ]
 
 
@@ -142,7 +142,7 @@ def test_halt(message, timer, caplog):
     assert len(caplog.records) == 2
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
         ("ERROR", f"Unhandled exception when consuming {encode(message)}, shutting down gracefully", False),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'", True),
     ]
 
 
@@ -159,7 +159,7 @@ def test_discard(message, short_timer, caplog):
     assert [(r.levelname, r.message, r.exc_info is None) for r in caplog.records] == [
         ("ERROR", f"Unhandled exception when consuming {encode(message)}, discarding message", False),
         ("INFO", "Received SIGINT, shutting down gracefully", True),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'", True),
     ]
 
 
@@ -177,7 +177,7 @@ def test_requeue(message, short_timer, caplog):
         ("ERROR", f"Unhandled exception when consuming {encode(message)} (requeue=True)", False),
         ("ERROR", f"Unhandled exception when consuming {encode(message)} (requeue=False)", False),
         ("INFO", "Received SIGINT, shutting down gracefully", True),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')", True),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'", True),
     ]
 
 
@@ -201,7 +201,7 @@ def test_publish(message, short_timer, caplog):
         ),
         ("DEBUG", "Ack'd message on channel 1 with delivery tag 1"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'"),
     ]
 
 
@@ -230,7 +230,7 @@ def test_consume_declares_queue(caplog):
 
     for i, j in ((0, start), (end, len(caplog.records))):
         assert [(r.levelname, r.message) for r in caplog.records[i:j]] == [
-            ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
+            ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'"),
         ]
 
 
@@ -255,8 +255,8 @@ def test_consume_declares_queue_routing_keys(caplog):
 
     assert len(caplog.records) == 4
     assert [(r.levelname, r.message) for r in caplog.records] == [
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'"),
         ("WARNING", "{'message': 'r'}"),
         ("WARNING", "{'message': 'k'}"),
-        ("WARNING", "Channel 1 was closed: (0, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (0) 'Normal shutdown'"),
     ]

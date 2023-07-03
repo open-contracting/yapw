@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 import pika
 import pytest
@@ -36,12 +37,28 @@ def test_init_kwargs(connection):
     assert connection.call_args[0][0].blocked_connection_timeout == 300
 
 
-def test_connection_open_error(short_reconnect_delay, caplog):
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        (
+            "amqp://invalid",
+            "Connection failed, retrying in 1s: AMQPConnectionWorkflowFailed: 1 exceptions in all; last exception - "
+            "gaierror(8, 'nodename nor servname provided, or not known'); first exception - None",
+        ),
+        (
+            "amqp://127.0.0.1:1024",
+            "Connection failed, retrying in 1s: AMQPConnectionError: (AMQPConnectionWorkflowFailed: 1 exceptions in "
+            "all; last exception - AMQPConnectorSocketConnectError: ConnectionRefusedError(61, 'Connection refused'); "
+            "first exception - None,)",
+        ),
+    ],
+)
+def test_connection_open_error_bad_host_or_port(url, expected, short_reconnect_delay, caplog):
     caplog.set_level(logging.CRITICAL, logger="pika")
     caplog.set_level(logging.INFO, logger="asyncio")
     caplog.set_level(logging.DEBUG)
 
-    client = Async(durable=False, url="amqp://nonexistent")
+    client = Async(durable=False, url=url)
     # Prevent an infinite loop.
     client.stopping = True
     client.start()
@@ -50,7 +67,62 @@ def test_connection_open_error(short_reconnect_delay, caplog):
     assert client.connection.is_closed
 
     assert len(caplog.records) == 1
-    assert [(r.levelname, r.message) for r in caplog.records] == [("ERROR", "Connection failed, retrying in 1s: ")]
+    assert [(r.levelname, r.message) for r in caplog.records] == [("ERROR", expected)]
+
+
+@pytest.mark.parametrize("auth", ["invalid:invalid", "guest:invalid"])
+def test_connection_open_error_bad_username_or_password(auth, short_reconnect_delay, caplog):
+    caplog.set_level(logging.CRITICAL, logger="pika")
+    caplog.set_level(logging.INFO, logger="asyncio")
+    caplog.set_level(logging.DEBUG)
+
+    parsed = urlsplit(RABBIT_URL)
+    parsed = parsed._replace(netloc=f"{auth}@{parsed.hostname}:{parsed.port or 5672}")
+
+    client = Async(durable=False, url=parsed.geturl())
+    # Prevent an infinite loop.
+    client.stopping = True
+    client.start()
+
+    # Channel never opened.
+    assert client.connection.is_closed
+
+    assert len(caplog.records) == 1
+    assert [(r.levelname, r.message) for r in caplog.records] == [
+        (
+            "ERROR",
+            "Stopping: ProbableAuthenticationError: Client was disconnected at a connection stage indicating a "
+            "probable authentication error: (\"ConnectionClosedByBroker: (403) 'ACCESS_REFUSED - Login was refused "
+            "using authentication mechanism PLAIN. For details see the broker logfile.'\",)",
+        )
+    ]
+
+
+def test_connection_open_error_bad_virtual_host(short_reconnect_delay, caplog):
+    caplog.set_level(logging.CRITICAL, logger="pika")
+    caplog.set_level(logging.INFO, logger="asyncio")
+    caplog.set_level(logging.DEBUG)
+
+    parsed = urlsplit(RABBIT_URL)
+    parsed = parsed._replace(path="/%2Finvalid")
+
+    client = Async(durable=False, url=parsed.geturl())
+    # Prevent an infinite loop.
+    client.stopping = True
+    client.start()
+
+    # Channel never opened.
+    assert client.connection.is_closed
+
+    assert len(caplog.records) == 1
+    assert [(r.levelname, r.message) for r in caplog.records] == [
+        (
+            "ERROR",
+            "Stopping: ProbableAccessDeniedError: Client was disconnected at a connection stage indicating a probable "
+            "denial of access to the specified virtual host: (\"ConnectionClosedByBroker: (530) 'NOT_ALLOWED - vhost "
+            "/invalid not found'\",)",
+        )
+    ]
 
 
 def test_connection_close(short_reconnect_delay, caplog):
@@ -73,9 +145,9 @@ def test_connection_close(short_reconnect_delay, caplog):
 
     assert len(caplog.records) == 3
     assert [(r.levelname, r.message) for r in caplog.records] == [
-        ("WARNING", "Channel 1 was closed: (200, 'Normal shutdown')"),
-        ("ERROR", "Connection closed, reconnecting in 1s: (200, 'Normal shutdown')"),
-        ("WARNING", "Channel 1 was closed: (200, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
+        ("WARNING", "Connection closed, reconnecting in 1s: ConnectionClosedByClient: (200) 'Normal shutdown'"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
     ]
 
 
@@ -96,7 +168,7 @@ def test_exchangeok_default(short_timer, caplog):
     assert [(r.levelname, r.message) for r in caplog.records] == [
         ("INFO", "stop"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
-        ("WARNING", "Channel 1 was closed: (200, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
     ]
 
 
@@ -123,5 +195,5 @@ def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
     assert [(r.levelname, r.message) for r in caplog.records] == [
         ("DEBUG", f"Declaring transient {infix} exchange yapw_test"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
-        ("WARNING", "Channel 1 was closed: (200, 'Normal shutdown')"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
     ]

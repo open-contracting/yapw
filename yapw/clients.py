@@ -19,8 +19,8 @@ from types import FrameType
 from typing import Any, Generic, TypeVar
 
 import pika
-import pika.exceptions
 from pika.adapters.asyncio_connection import AsyncioConnection
+from pika.exceptions import ProbableAccessDeniedError, ProbableAuthenticationError
 from pika.exchange_type import ExchangeType
 
 from yapw.decorators import halt
@@ -445,15 +445,20 @@ class Async(Base[AsyncioConnection]):
 
     def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
         """Retry, once the connection couldn't be established."""
-        logger.error("Connection failed, retrying in %ds: %s", self.RECONNECT_DELAY, error)
-        self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
+        if isinstance(error, (ProbableAccessDeniedError, ProbableAuthenticationError)):
+            logger.error("Stopping: %r", error)
+            self.connection.ioloop.stop()
+        else:
+            logger.error("Connection failed, retrying in %ds: %r", self.RECONNECT_DELAY, error)
+            self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
 
     def connection_close_callback(self, connection: pika.connection.Connection, reason: Exception) -> None:
         """Reconnect, if the connection was closed unexpectedly. Otherwise, stop the IO loop."""
         if self.stopping:
+            # A message has been logged, prior to calling interrupt().
             self.connection.ioloop.stop()
         else:
-            logger.error("Connection closed, reconnecting in %ds: %s", self.RECONNECT_DELAY, reason)
+            logger.warning("Connection closed, reconnecting in %ds: %r", self.RECONNECT_DELAY, reason)
             self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
 
     def add_signal_handler(self, signalnum: int, handler: Callable[..., object]) -> None:
@@ -510,7 +515,7 @@ class Async(Base[AsyncioConnection]):
 
         A warning is logged, in case it was the latter.
         """
-        logger.warning("Channel %i was closed: %s", channel, reason)
+        logger.warning("Channel %i was closed: %r", channel, reason)
         # pika's connection.close() closes all channels. It can update the connection state before this callback runs.
         if not self.connection.is_closed and not self.connection.is_closing:
             # The channel is already closed. Free any resources, without waiting for threads.
