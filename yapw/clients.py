@@ -527,12 +527,6 @@ class Async(Base[AsyncioConnection]):
     def channel_qosok_callback(self, method: pika.frame.Method[pika.spec.Basic.QosOk]) -> None:
         """Declare the exchange, once the prefetch count is set."""
         if self.exchange:
-            logger.debug(
-                "Declaring %s %s exchange %s",
-                "durable" if self.durable else "transient",
-                self.exchange_type,
-                self.exchange,
-            )
             self.channel.exchange_declare(
                 exchange=self.exchange,
                 exchange_type=self.exchange_type,

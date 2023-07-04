@@ -1,7 +1,6 @@
 import logging
 import os
 import re
-import sys
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
@@ -179,22 +178,17 @@ def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
 
     class Client(Async):
         def exchange_ready(self):
-            pass
+            logger.info("stop")
 
     client = Client(durable=False, url=RABBIT_URL, exchange="yapw_test", exchange_type=exchange_type)
     client.start()
-
-    if exchange_type is pika.exchange_type.ExchangeType.direct and sys.version_info < (3, 11):
-        infix = "ExchangeType.direct"
-    else:
-        infix = "direct"
 
     assert client.channel.is_closed
     assert client.connection.is_closed
 
     assert len(caplog.records) == 3
     assert [(r.levelname, r.message) for r in caplog.records] == [
-        ("DEBUG", f"Declaring transient {infix} exchange yapw_test"),
+        ("INFO", "stop"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
         ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
     ]
