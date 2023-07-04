@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+Changed
+~~~~~~~
+
+-  Remove log message for declaring exchange.
+
 0.1.3 (2023-07-03)
 ------------------
 
