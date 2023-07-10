@@ -566,7 +566,7 @@ class AsyncConsumer(Async):
         queue: str,
         routing_keys: list[str] | None = None,
         decorator: Decorator = halt,
-        arguments: dict[str, str] | None = None,
+        arguments: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """
