@@ -38,7 +38,7 @@ def test_init_kwargs(connection):
 
 
 @pytest.mark.parametrize(
-    "url,expected",
+    ("url", "expected"),
     [
         (
             "amqp://invalid",

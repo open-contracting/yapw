@@ -119,7 +119,7 @@ def test_discard(nack, caplog):
     assert caplog.records[-1].exc_info
 
 
-@pytest.mark.parametrize("redelivered,requeue_kwarg", [(False, True), (True, False)])
+@pytest.mark.parametrize(("redelivered", "requeue_kwarg"), [(False, True), (True, False)])
 @patch("yapw.decorators.nack")
 def test_requeue(nack, redelivered, requeue_kwarg, caplog):
     caplog.set_level(logging.DEBUG)

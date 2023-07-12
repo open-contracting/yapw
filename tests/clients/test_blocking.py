@@ -75,7 +75,7 @@ def test_declare_queue_routing_keys(connection, durable):
     )
 
 
-@pytest.mark.parametrize("durable,delivery_mode", [(True, 2), (False, 1)])
+@pytest.mark.parametrize(("durable", "delivery_mode"), [(True, 2), (False, 1)])
 @patch("pika.BlockingConnection")
 def test_publish(connection, durable, delivery_mode, caplog):
     connection.return_value.channel.return_value.channel_number = 1

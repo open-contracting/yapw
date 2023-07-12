@@ -59,7 +59,7 @@ def test_init_kwargs(connection):
 
 
 @pytest.mark.parametrize(
-    "signum,signame",
+    ("signum", "signame"),
     [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM")],
 )
 def test_shutdown(signum, signame, message, caplog):

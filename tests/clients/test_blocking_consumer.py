@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.parametrize(
-    "signum,signame",
+    ("signum", "signame"),
     [(signal.SIGINT, "SIGINT"), (signal.SIGTERM, "SIGTERM")],
 )
 def test_shutdown(signum, signame, message, caplog):

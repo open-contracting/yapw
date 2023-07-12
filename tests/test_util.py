@@ -10,7 +10,7 @@ def test_json_dumps():
 
 
 @pytest.mark.parametrize(
-    "args,expected",
+    ("args", "expected"),
     [
         (({"a": 1, "b": 2}, "application/json"), b'{"a":1,"b":2}'),
         (("string", None), b"string"),

@@ -13,7 +13,7 @@ Channel = namedtuple("Channel", "channel_number is_open basic_ack basic_nack bas
 State = namedtuple("State", "format_routing_key connection exchange encode content_type delivery_mode")
 
 ack_nack_parameters = [(ack, "ack", [1]), (nack, "nack", [1])]
-parameters = ack_nack_parameters + [(publish, "publish", [{"message": "value"}, "q"])]
+parameters = [*ack_nack_parameters, (publish, "publish", [{"message": "value"}, "q"])]
 
 
 def format_routing_key(exchange, routing_key):
@@ -25,7 +25,7 @@ def dumps(message, content_type):
 
 
 @pytest.mark.parametrize(
-    "encode,content_type,body",
+    ("encode", "content_type", "body"),
     [(default_encode, "application/json", b'{"message":"value"}'), (dumps, "text/plain", b"overridden")],
 )
 def test_publish(encode, content_type, body):
@@ -55,7 +55,7 @@ def test_publish(encode, content_type, body):
     )
 
 
-@pytest.mark.parametrize("function,infix,args", ack_nack_parameters)
+@pytest.mark.parametrize(("function", "infix", "args"), ack_nack_parameters)
 @pytest.mark.parametrize("kwargs", [{}, {"multiple": True}])
 def test_ack_nack(function, infix, args, kwargs):
     connection = create_autospec(Connection, is_open=True)
@@ -72,7 +72,7 @@ def test_ack_nack(function, infix, args, kwargs):
     getattr(channel, f"basic_{infix}").assert_called_once_with(*args, **kwargs)
 
 
-@pytest.mark.parametrize("function,infix,args", parameters)
+@pytest.mark.parametrize(("function", "infix", "args"), parameters)
 def test_channel_closed(function, infix, args, caplog):
     connection = create_autospec(Connection, is_open=True)
     channel = create_autospec(Channel, channel_number=1, is_open=False)
@@ -92,7 +92,7 @@ def test_channel_closed(function, infix, args, caplog):
     assert caplog.records[-1].message == f"Can't {infix} as channel is closed or closing"
 
 
-@pytest.mark.parametrize("function,infix,args", parameters)
+@pytest.mark.parametrize(("function", "infix", "args"), parameters)
 def test_connection_closed(function, infix, args, caplog):
     connection = create_autospec(Connection, is_open=False)
     channel = create_autospec(Channel, channel_number=1, is_open=True)
