@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 This script can be used to test publishing (like the sample code in the documentation).
 """
