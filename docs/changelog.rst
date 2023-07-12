@@ -8,6 +8,7 @@ Changed
 ~~~~~~~
 
 -  Remove log message for declaring exchange.
+-  Remove ``yapw.clients.Base.__getsafe__``.
 
 0.1.3 (2023-07-03)
 ------------------

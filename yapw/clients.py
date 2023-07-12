@@ -70,7 +70,7 @@ class Base(Generic[T]):
     # `connection` and `interrupt` aren't "safe to use" but can be "used safely" like in:
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
     #: Attributes that can - and are expected to - be used safely in consumer callbacks.
-    __safe__ = ["connection", "interrupt", "exchange", "encode", "content_type", "delivery_mode", "format_routing_key"]
+    __safe__ = {"connection", "interrupt", "exchange", "encode", "content_type", "delivery_mode", "format_routing_key"}
 
     def __init__(
         self,
@@ -188,18 +188,8 @@ class Base(Generic[T]):
         A named tuple of attributes that can be used within threads.
         """
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
-        klass = namedtuple("State", self.__getsafe__)  # type: ignore # python/mypy#848 "This just never will happen"
-        return klass(**{attr: getattr(self, attr) for attr in self.__getsafe__})
-
-    @property
-    @functools.cache
-    def __getsafe__(self) -> set[str]:
-        """
-        The attributes that can be used safely in consumer callbacks, across all base classes.
-        """
-        return {attr for base in type(self).__bases__ for attr in getattr(base, "__safe__", [])} | set(
-            type(self).__safe__
-        )
+        klass = namedtuple("State", self.__safe__)  # type: ignore # python/mypy#848 "This just never will happen"
+        return klass(**{attr: getattr(self, attr) for attr in self.__safe__})
 
 
 class Blocking(Base[pika.BlockingConnection]):
@@ -445,7 +435,7 @@ class Async(Base[AsyncioConnection]):
 
     def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
         """Retry, once the connection couldn't be established."""
-        if isinstance(error, (ProbableAccessDeniedError, ProbableAuthenticationError)):
+        if isinstance(error, ProbableAccessDeniedError | ProbableAuthenticationError):
             logger.error("Stopping: %r", error)
             self.connection.ioloop.stop()
         else:

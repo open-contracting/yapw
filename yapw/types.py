@@ -1,12 +1,12 @@
 import sys
 from collections.abc import Callable
-from typing import Any, Generic, NamedTuple, Optional, TypedDict, TypeVar
+from typing import Any, Generic, NamedTuple, TypedDict, TypeVar
 
 import pika
 
 T = TypeVar("T")
 Encode = Callable[[Any, str], bytes]
-Decode = Callable[[bytes, Optional[str]], Any]
+Decode = Callable[[bytes, str | None], Any]
 
 
 if sys.version_info >= (3, 11):

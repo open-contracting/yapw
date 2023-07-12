@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 def callback(state, channel, method, properties, body):
     logger.info("Start")
-    for i in range(100000000):
+    for _ in range(100000000):
         pass
     logger.info("Finish!")
     if isinstance(state.connection, pika.BlockingConnection):

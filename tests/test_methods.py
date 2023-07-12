@@ -50,7 +50,7 @@ def test_publish(encode, content_type, body):
     cb()
 
     properties = pika.BasicProperties(delivery_mode=2, content_type=content_type)
-    getattr(channel, "basic_publish").assert_called_once_with(
+    channel.basic_publish.assert_called_once_with(
         exchange="exch", routing_key="exch_q", body=body, properties=properties
     )
 
