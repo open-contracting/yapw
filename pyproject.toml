@@ -5,27 +5,33 @@ build-backend = "setuptools.build_meta"
 [tool.black]
 line-length = 119
 
-[tool.isort]
-profile = 'black'
-line_length = 119
-
-[tool.pydocstyle]
-match_dir = '(?!tests).*'
-ignore = 'D100,D104,D200,D203,D205,D212,D400,D415'
-
 [tool.ruff]
 line-length = 119
 select = ["ALL"]
-ignore = ["ANN", "COM", "EM", "D100", "D104", "D200", "D203", "D205", "D212", "D400", "D415"]
+ignore = [
+  "ANN", "COM", "CPY", "EM",
+  "D100", "D104", "D200", "D203", "D205", "D212", "D400", "D415",
+  "ARG001", "ARG002",  # unused arguments
+  "PLR0913",  # many arguments (decorators)
+]
 target-version = "py310"
 
 [tool.ruff.per-file-ignores]
+"docs/conf.py" = ["INP001"]  # no __init__.py file
 "tests/*" = [
   "D",  # docstring
   "ARG001",  # unused pytest fixture
   "FBT003",  # boolean positional value
   "PLR2004", # unnamed constant value
+  "PLW0602",  # globals
+  "PLW0603",  # globals
+  "PT004",  # fixture naming convention
   "S101",  # assert
+  "TRY002",  # raise
+]
+"tests/fixtures/*" = [
+  "INP001",  # no __init__.py file
+  "T201",  # print
 ]
 
 [tool.ruff.flake8-builtins]

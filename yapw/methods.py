@@ -26,7 +26,7 @@ def publish(
     :param routing_key: the routing key
     """
     keywords = basic_publish_kwargs(state, message, routing_key)
-    keywords.update(kwargs)  # type: ignore # PEP 692 disallows updating TypedDict (PublishKeywords) with Dict.
+    keywords.update(kwargs)  # type: ignore[typeddict-item] # PEP 692 disallows updating TypedDict with Dict
 
     _channel_method_from_thread(state.connection, channel, "publish", *args, **keywords)
     logger.debug(*basic_publish_debug_args(channel, message, keywords))

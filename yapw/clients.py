@@ -13,10 +13,8 @@ import logging
 import signal
 import threading
 from collections import namedtuple
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from types import FrameType
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import pika
 from pika.adapters.asyncio_connection import AsyncioConnection
@@ -25,8 +23,13 @@ from pika.exchange_type import ExchangeType
 
 from yapw.decorators import halt
 from yapw.ossignal import signal_names
-from yapw.types import ConsumerCallback, Decode, Decorator, Encode, State
 from yapw.util import basic_publish_debug_args, basic_publish_kwargs, default_decode, default_encode
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from types import FrameType
+
+    from yapw.types import ConsumerCallback, Decode, Decorator, Encode, State
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -70,7 +73,9 @@ class Base(Generic[T]):
     # `connection` and `interrupt` aren't "safe to use" but can be "used safely" like in:
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
     #: Attributes that can - and are expected to - be used safely in consumer callbacks.
-    __safe__ = {"connection", "interrupt", "exchange", "encode", "content_type", "delivery_mode", "format_routing_key"}
+    __safe__ = frozenset(
+        ["connection", "interrupt", "exchange", "encode", "content_type", "delivery_mode", "format_routing_key"]
+    )
 
     def __init__(
         self,
@@ -180,15 +185,14 @@ class Base(Generic[T]):
         """
         Override this method in subclasses to shut down gracefully (e.g. wait for threads to terminate).
         """
-        pass
 
     @property
-    def state(self):  # type: ignore # anonymous class
+    def state(self):  # type: ignore[no-untyped-def] # anonymous class
         """
         A named tuple of attributes that can be used within threads.
         """
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
-        klass = namedtuple("State", self.__safe__)  # type: ignore # python/mypy#848 "This just never will happen"
+        klass = namedtuple("State", self.__safe__)  # type: ignore[misc] # python/mypy#848 "just never will happen"
         return klass(**{attr: getattr(self, attr) for attr in self.__safe__})
 
 
@@ -234,8 +238,8 @@ class Blocking(Base[pika.BlockingConnection]):
         self.channel.queue_declare(queue=queue_name, durable=self.durable, arguments=arguments)
 
         for routing_key in routing_keys:
-            routing_key = self.format_routing_key(routing_key)
-            self.channel.queue_bind(queue=queue_name, exchange=self.exchange, routing_key=routing_key)
+            formatted_routing_key = self.format_routing_key(routing_key)
+            self.channel.queue_bind(queue=queue_name, exchange=self.exchange, routing_key=formatted_routing_key)
 
     # https://github.com/pika/pika/blob/master/examples/basic_consumer_threaded.py
     def consume(
@@ -650,4 +654,3 @@ class AsyncConsumer(Async):
         """
         Override this method in subclasses to perform any other work, once the consumer is started.
         """
-        pass

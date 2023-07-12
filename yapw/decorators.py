@@ -28,13 +28,16 @@ Decorators look like this (see the :func:`~yapw.decorators.decorate` function fo
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import Any
-
-import pika
+from typing import TYPE_CHECKING, Any
 
 from yapw.methods import add_callback_threadsafe, nack
-from yapw.types import ConsumerCallback, Decode, State
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import pika
+
+    from yapw.types import ConsumerCallback, Decode, State
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +74,7 @@ def decorate(
         message = decode(body, properties.content_type)
         try:
             callback(state, channel, method, properties, message)
-        except Exception as exception:
+        except Exception as exception:  # noqa: BLE001
             errback(exception)
         finally:
             if finalback:
