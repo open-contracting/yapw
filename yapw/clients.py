@@ -12,8 +12,9 @@ import functools
 import logging
 import signal
 import threading
+from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import pika
 from pika.adapters.asyncio_connection import AsyncioConnection
@@ -191,7 +192,7 @@ class Base(Generic[T]):
         A named tuple of attributes that can be used within threads.
         """
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
-        klass = NamedTuple("State", self.__safe__)  # type: ignore[misc] # python/mypy#848 "just never will happen"
+        klass = namedtuple("State", self.__safe__)  # type: ignore[misc] # python/mypy#848 "just never will happen"
         return klass(**{attr: getattr(self, attr) for attr in self.__safe__})
 
 
