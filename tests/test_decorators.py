@@ -1,5 +1,5 @@
 import logging
-from collections import namedtuple
+from typing import NamedTuple
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,9 +8,9 @@ from yapw.decorators import decorate, discard, requeue
 from yapw.util import default_decode
 
 # https://pika.readthedocs.io/en/stable/modules/spec.html#pika.spec.Basic.Deliver
-Deliver = namedtuple("Deliver", "delivery_tag redelivered routing_key")
+Deliver = NamedTuple("Deliver", "delivery_tag redelivered routing_key")
 # https://pika.readthedocs.io/en/stable/modules/spec.html#pika.spec.BasicProperties
-BasicProperties = namedtuple("BasicProperties", "content_type")
+BasicProperties = NamedTuple("BasicProperties", "content_type")
 
 logger = logging.getLogger(__name__)
 
