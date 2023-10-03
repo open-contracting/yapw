@@ -13,10 +13,11 @@ line-length = 119
 select = ["ALL"]
 target-version = "py310"
 ignore = [
-  "ANN", "COM", "CPY", "EM",
+  "ANN", "COM", "EM",
   "D100", "D104", "D200", "D203", "D205", "D212", "D400", "D415",
   "ARG001", "ARG002",  # unused arguments (callbacks)
   "PLR0913",  # many arguments (decorators)
+  "PYI024",  # Python 3.10 has no generic namedtuples
 ]
 
 [tool.ruff.flake8-builtins]
