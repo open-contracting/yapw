@@ -100,7 +100,9 @@ def test_decode_invalid(short_message, timer, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = async_consumer(
-        on_message_callback=ack_warner, queue="q", decode=functools.partial(decode, 10)  # IndexError
+        on_message_callback=ack_warner,
+        queue="q",
+        decode=functools.partial(decode, 10),  # IndexError
     )
     consumer.start()
 

@@ -2,18 +2,14 @@
 requires = ["setuptools>=61.2"]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
-line-length = 119
-
-[tool.isort]
-profile = "black"
-
 [tool.ruff]
 line-length = 119
 select = ["ALL"]
 target-version = "py310"
 ignore = [
   "ANN", "COM", "EM",
+  # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+  "W191", "E501", "D206", "Q000", "Q001", "Q002", "Q003", "ISC001",
   "D100", "D104", "D200", "D203", "D205", "D212", "D400", "D415",
   "ARG001", "ARG002",  # unused arguments (callbacks)
   "PLR0913",  # many arguments (decorators)
