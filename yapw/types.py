@@ -70,7 +70,8 @@ class PublishKeywords(TypedDict, total=False):
 
 
 ConsumerCallback = Callable[
-    [State[Any], pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, Any], None
+    [State[Any], pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, Any],
+    None,
 ]
 Decorator = Callable[
     [Decode, ConsumerCallback, State[Any], pika.channel.Channel, pika.spec.Basic.Deliver, pika.BasicProperties, bytes],
