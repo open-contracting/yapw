@@ -382,7 +382,6 @@ class Async(Base[AsyncioConnection]):
         """
         self.connect()
         self.add_signal_handlers(self._on_signal_callback)
-        self.connection.ioloop.call_soon_threadsafe(print)
         self.connection.ioloop.run_forever()
 
     def connect(self) -> None:
