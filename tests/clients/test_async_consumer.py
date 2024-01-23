@@ -237,7 +237,7 @@ def test_consume_declares_queue(caplog):
 
 def test_consume_declares_queue_routing_keys(caplog):
     with timed(DELAY):
-        declarer = async_consumer(on_message_callback="raiser", queue="q", routing_keys=["r", "k"])
+        declarer = async_consumer(on_message_callback=raiser, queue="q", routing_keys=["r", "k"])
         declarer.start()
 
     publisher = blocking()
