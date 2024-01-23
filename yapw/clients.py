@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import pika
 from pika.adapters.asyncio_connection import AsyncioConnection
-from pika.exceptions import ProbableAccessDeniedError, ProbableAuthenticationError
+from pika.exceptions import ConnectionOpenAborted, ProbableAccessDeniedError, ProbableAuthenticationError
 from pika.exchange_type import ExchangeType
 
 from yapw.decorators import halt
@@ -438,7 +438,7 @@ class Async(Base[AsyncioConnection]):
 
     def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
         """Retry, once the connection couldn't be established."""
-        if isinstance(error, ProbableAccessDeniedError | ProbableAuthenticationError):
+        if isinstance(error, ConnectionOpenAborted | ProbableAccessDeniedError | ProbableAuthenticationError):
             logger.error("Stopping: %r", error)
             self.connection.ioloop.stop()
         else:

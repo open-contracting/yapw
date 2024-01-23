@@ -10,6 +10,11 @@ Changed
 -  Remove log message for declaring exchange.
 -  Remove ``yapw.clients.Base.__getsafe__``.
 
+Fixed
+~~~~~
+
+-  If the client attempts to close the connection while it is opening, do not retry opening the connection.
+
 0.1.3 (2023-07-03)
 ------------------
 
