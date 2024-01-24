@@ -14,6 +14,7 @@ Fixed
 ~~~~~
 
 -  If the client attempts to close the connection while it is opening, do not retry opening the connection.
+-  Reset the client's state, before scheduling the reconnection, rather than immediately before reconnecting.
 
 0.1.3 (2023-07-03)
 ------------------

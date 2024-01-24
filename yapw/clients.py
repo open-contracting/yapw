@@ -423,7 +423,6 @@ class Async(Base[AsyncioConnection]):
         if self.stopping:
             self.connection.ioloop.stop()
         else:
-            self.reset()
             self.connect()
 
     def reset(self) -> None:
@@ -444,6 +443,7 @@ class Async(Base[AsyncioConnection]):
         else:
             logger.error("Connection failed, retrying in %ds: %r", self.RECONNECT_DELAY, error)
             self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
+            self.reset()
 
     def connection_close_callback(self, connection: pika.connection.Connection, reason: Exception) -> None:
         """Reconnect, if the connection was closed unexpectedly. Otherwise, stop the IO loop."""
@@ -451,10 +451,10 @@ class Async(Base[AsyncioConnection]):
             # A message has been logged, prior to calling interrupt().
             self.connection.ioloop.stop()
         else:
-            # For example: ConnectionClosedByBroker: (320) "CONNECTION_FORCED - broker forced connection closure with
-            # reason 'shutdown'"
+            # ConnectionClosedByBroker "CONNECTION_FORCED - broker forced connection closure with reason 'shutdown'"
             logger.warning("Connection closed, reconnecting in %ds: %r", self.RECONNECT_DELAY, reason)
             self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
+            self.reset()
 
     def add_signal_handler(self, signalnum: int, handler: Callable[..., object]) -> None:
         """
