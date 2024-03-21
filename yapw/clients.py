@@ -14,7 +14,7 @@ import threading
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from typing import TYPE_CHECKING, Any, Generic, Never, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, NoReturn, TypeVar
 
 import pika
 from pika.adapters.asyncio_connection import AsyncioConnection
@@ -630,7 +630,7 @@ class AsyncConsumer(Async):
         """
         self.channel.add_on_cancel_callback(self.channel_cancel_callback)
 
-        submit: partial[Future[Never]] = partial(self.connection.ioloop.run_in_executor, self.executor)
+        submit: partial[Future[NoReturn]] = partial(self.connection.ioloop.run_in_executor, self.executor)
         cb = partial(_on_message, args=(submit, decorator, self.decode, on_message_callback, self.state))
 
         self.consumer_tag = self.channel.basic_consume(queue_name, cb, callback=self.channel_consumeok_callback)
