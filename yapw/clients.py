@@ -6,6 +6,7 @@ Classes for RabbitMQ clients.
    Importing this module sets the level of the "pika" logger to ``WARNING``, so that consumers can use the ``DEBUG``
    and ``INFO`` levels without their messages getting lost in Pika's verbosity.
 """
+
 from __future__ import annotations
 
 import logging

@@ -25,6 +25,7 @@ Decorators look like this (see the :func:`~yapw.decorators.decorate` function fo
 
        decorate(decode, callback, state, channel, method, properties, body, errback)
 """
+
 from __future__ import annotations
 
 import logging
