@@ -12,8 +12,9 @@ ignore = [
   "ANN", "COM", "EM",
   # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
   "W191", "E501", "D206", "Q000", "Q001", "Q002", "Q003", "ISC001",
-  "D203", "D212",  # ignore incompatible rules
-  "D100", "D104", "D200", "D205", "D400", "D415",
+  "D203", "D212",  # incompatible rules
+  "D200",  # documentation preferences
+  "D100", "D104", "D205", "D400", "D415",
   "ARG001", "ARG002",  # unused arguments (callbacks)
   "PLR0913",  # many arguments (decorators)
   "PYI024",  # Python 3.10 has no generic namedtuples
