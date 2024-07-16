@@ -194,8 +194,8 @@ class Base(Generic[T]):
         A named tuple of attributes that can be used within threads.
         """
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
-        klass = namedtuple("State", self.__safe__)  # type: ignore[misc] # python/mypy#848 "just never will happen"
-        return klass(**{attr: getattr(self, attr) for attr in self.__safe__})
+        cls = namedtuple("State", self.__safe__)  # type: ignore[misc] # python/mypy#848 "just never will happen"
+        return cls(**{attr: getattr(self, attr) for attr in self.__safe__})
 
 
 class Blocking(Base[pika.BlockingConnection]):
