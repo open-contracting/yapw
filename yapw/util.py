@@ -33,8 +33,9 @@ def json_dumps(message: Any) -> bytes:
 
 def default_decode(body: bytes, content_type: str | None) -> Any:
     """
-    If the content type is "application/json", deserializes the JSON formatted bytes to a Python object. Otherwise,
-    returns the bytes (which the consumer callback can deserialize independently).
+    If the content type is "application/json", deserialize the JSON formatted bytes to a Python object.
+
+    Otherwise, return the bytes (which the consumer callback can deserialize independently).
 
     Uses `orjson <https://pypi.org/project/orjson/>`__ if available.
 

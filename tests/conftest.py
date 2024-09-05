@@ -5,14 +5,14 @@ from yapw.clients import Async
 
 
 # Use this in tests that terminate naturally (e.g. due to an exception).
-@pytest.fixture()
+@pytest.fixture
 def timer(request):
     with timed(30):
         yield
 
 
 # Use this in tests that don't terminate naturally.
-@pytest.fixture()
+@pytest.fixture
 def short_timer(request):
     with timed(0.05):
         yield
@@ -31,7 +31,7 @@ def message(request):
     publisher.close()
 
 
-@pytest.fixture()
+@pytest.fixture
 def short_message(request):
     body = 1
 
@@ -44,7 +44,7 @@ def short_message(request):
     publisher.close()
 
 
-@pytest.fixture()
+@pytest.fixture
 def short_reconnect_delay(request):
     reconnect_delay = Async.RECONNECT_DELAY
     Async.RECONNECT_DELAY = 1

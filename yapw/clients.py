@@ -94,6 +94,8 @@ class Base(Generic[T]):
         routing_key_template: str = "{exchange}_{routing_key}",
     ):
         """
+        Initialize the client's state.
+
         :param url: the connection string (don't set a ``blocked_connection_timeout`` query string parameter)
         :param blocked_connection_timeout: the timeout, in seconds, that the connection may remain blocked
         :param durable: whether to declare a durable exchange, declare durable queues, and publish persistent messages
@@ -177,6 +179,8 @@ class Base(Generic[T]):
 
     def add_signal_handler(self, signalnum: int, handler: Callable[..., object]) -> None:
         """
+        Add a handler for a signal.
+
         Override this method in subclasses to add a handler for a signal (e.g. using :func:`signal.signal` or
         :meth:`asyncio.loop.add_signal_handler`). The handler should remove signal handlers (in order to ignore
         duplicate signals), log a message with a level of ``INFO``, and call :meth:`yapw.clients.base.interrupt`.
@@ -205,8 +209,7 @@ class Blocking(Base[pika.BlockingConnection]):
 
     def __init__(self, **kwargs: Any):
         """
-        Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange, unless using the
-        default exchange.
+        Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange.
         """
         super().__init__(**kwargs)
 
@@ -226,8 +229,9 @@ class Blocking(Base[pika.BlockingConnection]):
         self, queue: str, routing_keys: list[str] | None = None, arguments: dict[str, str] | None = None
     ) -> None:
         """
-        Declare a queue, and bind it to the exchange with the routing keys. If no routing keys are provided, the queue
-        is bound to the exchange using its name as the routing key.
+        Declare a queue, and bind it to the exchange with the routing keys.
+
+        If no routing keys are provided, the queue is bound to the exchange using its name as the routing key.
 
         :param queue: the queue's name
         :param routing_keys: the queue's routing keys
@@ -328,8 +332,9 @@ class Blocking(Base[pika.BlockingConnection]):
 
 class Async(Base[AsyncioConnection]):
     """
-    Uses Pika's :class:`AsyncioConnection adapter<pika.adapters.asyncio_connection.AsyncioConnection>`. Reconnects to
-    RabbitMQ if the connection is closed unexpectedly or can't be established.
+    Uses Pika's :class:`AsyncioConnection adapter<pika.adapters.asyncio_connection.AsyncioConnection>`.
+
+    Reconnects to RabbitMQ if the connection is closed unexpectedly or can't be established.
 
     Calling :meth:`~yapw.clients.Async.start` connects to RabbitMQ, add signal handlers, and starts the IO loop.
 
@@ -386,8 +391,7 @@ class Async(Base[AsyncioConnection]):
 
     def connect(self) -> None:
         """
-        Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange, unless using the
-        default exchange.
+        Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange.
         """
         self.connection = AsyncioConnection(
             self.parameters,
@@ -471,8 +475,11 @@ class Async(Base[AsyncioConnection]):
 
     def interrupt(self) -> None:
         """
-        `Cancel <https://www.rabbitmq.com/consumers.html#unsubscribing>`__ the consumer if consuming and if the channel
-        is open. Otherwise, wait for threads to terminate and close the connection.
+        `Cancel`_ the consumer if consuming and if the channel is open.
+
+        Otherwise, wait for threads to terminate and close the connection.
+
+        .. _Cancel: https://www.rabbitmq.com/consumers.html#unsubscribing
         """
         # Change the client's state to stopping, to prevent infinite reconnection.
         self.stopping = True
@@ -496,8 +503,9 @@ class Async(Base[AsyncioConnection]):
 
     def channel_cancelok_callback(self, method: pika.frame.Method[pika.spec.Basic.CancelOk]) -> Any:
         """
-        Close the channel, once the consumer is cancelled. The :meth:`~yapw.clients.Async.channel_close_callback`
-        closes the connection.
+        Close the channel, once the consumer is cancelled.
+
+        The :meth:`~yapw.clients.Async.channel_close_callback` closes the connection.
         """
         # Keep channel open until threads terminate. Ensure the channel closes after any thread-safe callbacks.
         self.executor.shutdown(cancel_futures=True)
@@ -505,8 +513,9 @@ class Async(Base[AsyncioConnection]):
 
     def channel_close_callback(self, channel: pika.channel.Channel, reason: Exception) -> None:
         """
-        Close the connection, once the client cancelled the consumer or once RabbitMQ closed the channel due to, e.g.,
-        redeclaring exchanges with inconsistent parameters.
+        Close the connection, once the client cancelled the consumer or once RabbitMQ closed the channel.
+
+        RabbitMQ can close the channel due to, e.g., redeclaring exchanges with inconsistent parameters.
 
         A warning is logged, in case it was the latter.
         """
@@ -518,7 +527,7 @@ class Async(Base[AsyncioConnection]):
             self.connection.close()
 
     def channel_qosok_callback(self, method: pika.frame.Method[pika.spec.Basic.QosOk]) -> None:
-        """Declare the exchange, once the prefetch count is set."""
+        """Declare the exchange, once the prefetch count is set, if not using the default exchange."""
         if self.exchange:
             self.channel.exchange_declare(
                 exchange=self.exchange,
@@ -563,6 +572,8 @@ class AsyncConsumer(Async):
         **kwargs: Any,
     ) -> None:
         """
+        Initialize the client's state.
+
         .. seealso::
 
            :meth:`yapw.clients.AsyncConsumer.consume`
