@@ -2,6 +2,56 @@
 requires = ["setuptools>=61.2"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "yapw"
+version = "0.1.4"
+authors = [{name = "Open Contracting Partnership", email = "data@open-contracting.org"}]
+license = {text = "BSD"}
+description = "A Pika wrapper with error handling, signal handling and good defaults."
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+urls = {Homepage = "https://github.com/open-contracting/yapw"}
+requires-python = ">=3.10"
+dependencies = [
+    "pika>=1.2.0",
+    "typing-extensions;python_version<'3.8'",
+]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.optional-dependencies]
+perf = ["orjson"]
+test = [
+    "coveralls",
+    "pytest",
+    "pytest-cov",
+]
+types = [
+    "mypy",
+    "types-orjson",
+    "types-pika",
+]
+docs = [
+    "furo",
+    "sphinx",
+    "sphinx-autobuild",
+    "sphinx-design",
+]
+
+[tool.setuptools.packages.find]
+exclude = [
+    "tests",
+    "tests.*",
+]
+
 [tool.ruff]
 line-length = 119
 target-version = "py310"
@@ -11,7 +61,7 @@ select = ["ALL"]
 ignore = [
   "ANN", "COM", "EM",
   # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
-  "W191", "E501", "D206", "Q000", "Q001", "Q002", "Q003", "ISC001",
+  "W191", "D206", "Q000", "Q001", "Q002", "Q003", "ISC001",
   "D203", "D212",  # incompatible rules
   "D200",  # documentation preferences
   "C901", "PLR091",  # complexity preferences
