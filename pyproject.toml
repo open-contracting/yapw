@@ -6,8 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "yapw"
 version = "0.1.4"
 authors = [{name = "Open Contracting Partnership", email = "data@open-contracting.org"}]
-license = {text = "BSD"}
 description = "A Pika wrapper with error handling, signal handling and good defaults."
+readme = "README.rst"
+license = {text = "BSD"}
+urls = {Homepage = "https://github.com/open-contracting/yapw"}
 classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: POSIX :: Linux",
@@ -16,34 +18,22 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
-urls = {Homepage = "https://github.com/open-contracting/yapw"}
 requires-python = ">=3.10"
 dependencies = [
     "pika>=1.2.0",
     "typing-extensions;python_version<'3.8'",
 ]
 
-[project.readme]
-file = "README.rst"
-content-type = "text/x-rst"
-
 [project.optional-dependencies]
 perf = ["orjson"]
 test = [
-    "coveralls",
+    "coverage",
     "pytest",
-    "pytest-cov",
 ]
 types = [
     "mypy",
     "types-orjson",
     "types-pika",
-]
-docs = [
-    "furo",
-    "sphinx",
-    "sphinx-autobuild",
-    "sphinx-design",
 ]
 
 [tool.setuptools.packages.find]

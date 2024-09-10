@@ -23,9 +23,9 @@ jobs:
           TEST_RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports[5672] }}
         shell: bash
         run: |
-          coverage run --append --source=yapw -m pytest
+          coverage run --source=yapw --append -m pytest
           pip install orjson
-          coverage run --append --source=yapw -m pytest
+          coverage run --source=yapw --append -m pytest
           pip uninstall -y orjson
       - if: matrix.python-version != '3.10'
         name: Test
@@ -33,9 +33,9 @@ jobs:
           TEST_RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports[5672] }}
         shell: bash
         run: |
-          coverage run --append --source=yapw -m pytest -W error -W ignore::ResourceWarning
+          coverage run --source=yapw --append -m pytest -W error -W ignore::ResourceWarning
           pip install orjson
-          coverage run --append --source=yapw -m pytest -W error -W ignore::ResourceWarning
+          coverage run --source=yapw --append -m pytest -W error -W ignore::ResourceWarning
           pip uninstall -y orjson
       - uses: coverallsapp/github-action@v2
     services:
