@@ -99,7 +99,7 @@ def halt(
     If the ``callback`` function raises an exception, shut down the client in the main thread, without acknowledgment.
     """
 
-    def errback(exception: Exception) -> None:
+    def errback(_exception: Exception) -> None:
         logger.exception("Unhandled exception when consuming %r, shutting down gracefully", body)
         add_callback_threadsafe(state.connection, state.interrupt)
 
@@ -119,7 +119,7 @@ def discard(
     If the ``callback`` function raises an exception, nack the message, without requeueing.
     """
 
-    def errback(exception: Exception) -> None:
+    def errback(_exception: Exception) -> None:
         logger.exception("Unhandled exception when consuming %r, discarding message", body)
         nack(state, channel, method.delivery_tag, requeue=False)
 
@@ -139,7 +139,7 @@ def requeue(
     If the ``callback`` function raises an exception, nack the message, requeueing it unless it was redelivered.
     """
 
-    def errback(exception: Exception) -> None:
+    def errback(_exception: Exception) -> None:
         requeue = not method.redelivered
         logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)
         nack(state, channel, method.delivery_tag, requeue=requeue)
