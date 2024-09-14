@@ -146,7 +146,6 @@ def test_finally(nack):
 
     discard(default_decode, closes, "state", "channel", method, properties, b'"body"')
 
-    global opened
     assert opened is False
 
 
