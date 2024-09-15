@@ -70,8 +70,6 @@ builtins-ignorelist = ["copyright"]
   "ARG001",  # unused pytest fixture
   "FBT003",  # boolean positional value
   "PLR2004", # unnamed constant value
-  "PLW0602",  # globals
-  "PLW0603",  # globals
   "PT004",  # fixture naming convention
   "S101",  # assert
   "TRY002",  # raise

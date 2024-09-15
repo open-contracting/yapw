@@ -24,7 +24,7 @@ def passes(*args):
 
 
 def closes(*args):
-    global opened
+    global opened  # noqa: PLW0603
     opened = True
     try:
         raise Exception("message")
