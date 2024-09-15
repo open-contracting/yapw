@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def callback(state, channel, method, properties, body):
-    raise Exception("message")
+    raise RuntimeError("message")
 
 
 def main():

@@ -55,7 +55,7 @@ def sleeper(state, channel, method, properties, body):
 
 
 def raiser(state, channel, method, properties, body):
-    raise Exception("message")
+    raise RuntimeError("message")
 
 
 def ack_warner(state, channel, method, properties, body):

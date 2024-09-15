@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def raises(*args):
-    raise Exception("message")
+    raise RuntimeError("message")
 
 
 def passes(*args):
@@ -27,7 +27,7 @@ def closes(*args):
     global opened  # noqa: PLW0603
     opened = True
     try:
-        raise Exception("message")
+        raise RuntimeError("message")
     finally:
         opened = False
 
