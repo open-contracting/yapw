@@ -1,6 +1,4 @@
-"""
-Functions for calling channel methods from a consumer callback running in another thread.
-"""
+"""Functions for calling channel methods from a consumer callback running in another thread."""
 
 import functools
 import logging

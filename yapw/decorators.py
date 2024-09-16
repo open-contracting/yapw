@@ -115,9 +115,7 @@ def discard(
     properties: pika.BasicProperties,
     body: bytes,
 ) -> None:
-    """
-    If the ``callback`` function raises an exception, nack the message, without requeueing.
-    """
+    """If the ``callback`` function raises an exception, nack the message, without requeueing."""
 
     def errback(_exception: Exception) -> None:
         logger.exception("Unhandled exception when consuming %r, discarding message", body)
@@ -135,9 +133,7 @@ def requeue(
     properties: pika.BasicProperties,
     body: bytes,
 ) -> None:
-    """
-    If the ``callback`` function raises an exception, nack the message, requeueing it unless it was redelivered.
-    """
+    """If the ``callback`` function raises an exception, nack the message, requeueing it unless it was redelivered."""
 
     def errback(_exception: Exception) -> None:
         requeue = not method.redelivered

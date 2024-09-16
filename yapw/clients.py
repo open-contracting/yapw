@@ -170,9 +170,7 @@ class Base(Generic[T]):
     # By adding our own handlers, SIGINT never reaches asyncio.
     # https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.add_signal_handler
     def add_signal_handlers(self, handler: Callable[..., object]) -> None:
-        """
-        Add handlers for the SIGTERM and SIGINT signals, if the current thread is the main thread.
-        """
+        """Add handlers for the SIGTERM and SIGINT signals, if the current thread is the main thread."""
         if threading.current_thread() is threading.main_thread():
             self.add_signal_handler(signal.SIGTERM, handler)
             self.add_signal_handler(signal.SIGINT, handler)
@@ -188,29 +186,21 @@ class Base(Generic[T]):
         raise NotImplementedError
 
     def interrupt(self) -> None:
-        """
-        Override this method in subclasses to shut down gracefully (e.g. wait for threads to terminate).
-        """
+        """Override this method in subclasses to shut down gracefully (e.g. wait for threads to terminate)."""
 
     @property
     def state(self):  # type: ignore[no-untyped-def] # anonymous class
-        """
-        A named tuple of attributes that can be used within threads.
-        """
+        """A named tuple of attributes that can be used within threads."""
         # Don't pass `self` to the callback, to prevent use of unsafe attributes and mutation of safe attributes.
         cls = namedtuple("State", self.__safe__)  # type: ignore[misc] # python/mypy#848 "just never will happen"
         return cls(**{attr: getattr(self, attr) for attr in self.__safe__})
 
 
 class Blocking(Base[pika.BlockingConnection]):
-    """
-    Uses Pika's :class:`BlockingConnection adapter<pika.adapters.blocking_connection.BlockingConnection>`.
-    """
+    """Uses Pika's :class:`BlockingConnection adapter<pika.adapters.blocking_connection.BlockingConnection>`."""
 
     def __init__(self, **kwargs: Any):
-        """
-        Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange.
-        """
+        """Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange."""
         super().__init__(**kwargs)
 
         #: The connection.
@@ -306,9 +296,7 @@ class Blocking(Base[pika.BlockingConnection]):
         self.channel.stop_consuming(self.consumer_tag)
 
     def add_signal_handler(self, signalnum: int, handler: Callable[..., object]) -> None:
-        """
-        Add a handler for a signal.
-        """
+        """Add a handler for a signal."""
         signal.signal(signalnum, handler)
 
     def _on_signal_callback(self, signalnum: int, frame: FrameType | None) -> None:
@@ -318,15 +306,11 @@ class Blocking(Base[pika.BlockingConnection]):
         self.interrupt()
 
     def interrupt(self) -> None:
-        """
-        Cancel the consumer, which causes the threads to terminate and the connection to close.
-        """
+        """Cancel the consumer, which causes the threads to terminate and the connection to close."""
         self.channel.stop_consuming(self.consumer_tag)
 
     def close(self) -> None:
-        """
-        Close the connection: for example, after sending messages from a simple publisher.
-        """
+        """Close the connection: for example, after sending messages from a simple publisher."""
         self.connection.close()
 
 
@@ -362,9 +346,7 @@ class Async(Base[AsyncioConnection]):
     RECONNECT_DELAY = 15
 
     def __init__(self, **kwargs: Any):
-        """
-        Initialize the client's state.
-        """
+        """Initialize the client's state."""
         super().__init__(**kwargs)
 
         #: The thread pool executor.
@@ -376,23 +358,17 @@ class Async(Base[AsyncioConnection]):
 
     @property
     def thread_name_infix(self) -> str:
-        """
-        Return the exchange name to use as part of the thread name.
-        """
+        """Return the exchange name to use as part of the thread name."""
         return self.exchange
 
     def start(self) -> None:
-        """
-        :meth:`Connect<yapw.clients.Async.connect>` to RabbitMQ, add signal handlers, and start the IO loop.
-        """
+        """:meth:`Connect<yapw.clients.Async.connect>` to RabbitMQ, add signal handlers, and start the IO loop."""
         self.connect()
         self.add_signal_handlers(self._on_signal_callback)
         self.connection.ioloop.run_forever()
 
     def connect(self) -> None:
-        """
-        Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange.
-        """
+        """Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange."""
         self.connection = AsyncioConnection(
             self.parameters,
             on_open_callback=self.connection_open_callback,
@@ -421,9 +397,7 @@ class Async(Base[AsyncioConnection]):
         self.blocked = False
 
     def reconnect(self) -> None:
-        """
-        Reconnect to RabbitMQ, unless a signal was received while the timer was running. If so, stop the IO loop.
-        """
+        """Reconnect to RabbitMQ, unless a signal was received while the timer was running. If so, stop the IO loop."""
         if self.stopping:
             self.connection.ioloop.stop()
         else:
@@ -461,9 +435,7 @@ class Async(Base[AsyncioConnection]):
             self.reset()
 
     def add_signal_handler(self, signalnum: int, handler: Callable[..., object]) -> None:
-        """
-        Add a handler for a signal.
-        """
+        """Add a handler for a signal."""
         self.connection.ioloop.add_signal_handler(signalnum, partial(handler, signalnum=signalnum))
 
     def _on_signal_callback(self, signalnum: int) -> None:
@@ -600,9 +572,7 @@ class AsyncConsumer(Async):
 
     @property
     def thread_name_infix(self) -> str:
-        """
-        Return the queue name to use as part of the thread name.
-        """
+        """Return the queue name to use as part of the thread name."""
         return self.queue
 
     def exchange_ready(self) -> None:
@@ -661,6 +631,4 @@ class AsyncConsumer(Async):
         self.connection.ioloop.call_later(0, self.channel.close)
 
     def channel_consumeok_callback(self, method: pika.frame.Method[pika.spec.Basic.ConsumeOk]) -> None:
-        """
-        Override this method in subclasses to perform any other work, once the consumer is started.
-        """
+        """Override this method in subclasses to perform any other work, once the consumer is started."""

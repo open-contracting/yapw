@@ -12,9 +12,7 @@ Decode = Callable[[bytes, str | None], Any]
 if sys.version_info >= (3, 11):
 
     class State(NamedTuple, Generic[T]):
-        """
-        Attributes that can be used safely in consumer callbacks.
-        """
+        """Attributes that can be used safely in consumer callbacks."""
 
         #: A function to format the routing key.
         format_routing_key: Callable[[str], str]
@@ -34,9 +32,7 @@ if sys.version_info >= (3, 11):
 else:
 
     class State(NamedTuple):
-        """
-        Attributes that can be used safely in consumer callbacks.
-        """
+        """Attributes that can be used safely in consumer callbacks."""
 
         #: A function to format the routing key.
         format_routing_key: Callable[[str], str]
@@ -55,9 +51,7 @@ else:
 
 
 class PublishKeywords(TypedDict, total=False):
-    """
-    Keyword arguments for ``basic_publish``.
-    """
+    """Keyword arguments for ``basic_publish``."""
 
     #: The exchange to publish to.
     exchange: str
