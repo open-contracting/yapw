@@ -51,12 +51,15 @@ select = ["ALL"]
 ignore = [
     "ANN", "C901", "COM812", "D203", "D212", "D415", "EM", "PERF203", "PLR091", "Q000",
     "D100", "D104",
-    "D200",  # https://github.com/astral-sh/ruff/issues/6269
     "PYI024",  # 3.11+
+    "D200",  # https://github.com/astral-sh/ruff/issues/6269
 ]
 
 [tool.ruff.lint.flake8-builtins]
 builtins-ignorelist = ["copyright"]
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
 "docs/conf.py" = ["D100", "INP001"]
