@@ -68,3 +68,8 @@ ignore-variadic-names = true
 ]
 "tests/fixtures/*" = ["T201"]  # print
 "yapw/clients.py" = ["ARG002"]  # pika
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+exclude = "(build|docs|tests)/"

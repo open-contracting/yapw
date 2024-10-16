@@ -31,7 +31,7 @@ if sys.version_info >= (3, 11):
 
 else:
 
-    class State(NamedTuple):
+    class State(NamedTuple):  # "TypeError: Multiple inheritance with NamedTuple is not supported"
         """Attributes that can be used safely in consumer callbacks."""
 
         #: A function to format the routing key.
