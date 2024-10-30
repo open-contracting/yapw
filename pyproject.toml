@@ -21,7 +21,6 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "pika>=1.2.0",
-    "typing-extensions;python_version<'3.8'",
 ]
 
 [project.optional-dependencies]
