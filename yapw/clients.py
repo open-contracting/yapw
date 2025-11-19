@@ -27,7 +27,7 @@ from yapw.ossignal import signal_names
 from yapw.util import basic_publish_debug_args, basic_publish_kwargs, default_decode, default_encode
 
 if TYPE_CHECKING:
-    from asyncio import Future
+    import asyncio
     from collections.abc import Callable
     from types import FrameType
 
@@ -345,9 +345,12 @@ class Async(Base[AsyncioConnection]):
     # RabbitMQ takes about 10 seconds to restart.
     RECONNECT_DELAY = 15
 
-    def __init__(self, **kwargs: Any):
+    def __init__(self, custom_ioloop: asyncio.AbstractEventLoop | None = None, **kwargs: Any):
         """Initialize the client's state."""
         super().__init__(**kwargs)
+
+        #: The custom event loop.
+        self.custom_ioloop = custom_ioloop
 
         #: The thread pool executor.
         self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.thread_name_infix}")
@@ -374,6 +377,7 @@ class Async(Base[AsyncioConnection]):
             on_open_callback=self.connection_open_callback,
             on_open_error_callback=self.connection_open_error_callback,
             on_close_callback=self.connection_close_callback,
+            custom_ioloop=self.custom_ioloop,
         )
         self.connection.add_on_connection_blocked_callback(self.connection_blocked_callback)
         self.connection.add_on_connection_unblocked_callback(self.connection_unblocked_callback)
@@ -612,7 +616,7 @@ class AsyncConsumer(Async):
         """
         self.channel.add_on_cancel_callback(self.channel_cancel_callback)
 
-        submit: partial[Future[Any]] = partial(self.connection.ioloop.run_in_executor, self.executor)
+        submit: partial[asyncio.Future[Any]] = partial(self.connection.ioloop.run_in_executor, self.executor)
         cb = partial(_on_message, args=(submit, decorator, self.decode, on_message_callback, self.state))
 
         self.consumer_tag = self.channel.basic_consume(queue_name, cb, callback=self.channel_consumeok_callback)

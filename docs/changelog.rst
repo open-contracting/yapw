@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.1.5 (2025-11-19)
+------------------
+
+Added
+~~~~~
+
+-  :class:`yapw.clients.Async` accepts a ``custom_ioloop`` argument, to pass to ``pika.adapters.asyncio_connection.AsyncioConnection``.
+
 0.1.4 (2024-01-24)
 ------------------
 
