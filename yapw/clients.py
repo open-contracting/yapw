@@ -358,6 +358,8 @@ class Async(Base[AsyncioConnection]):
         self.blocked = False
         #: Whether the client is being stopped deliberately.
         self.stopping = False
+        #: Whether the exchange is ready.
+        self.ready = False
 
     @property
     def thread_name_infix(self) -> str:
@@ -415,6 +417,7 @@ class Async(Base[AsyncioConnection]):
         """
         self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.thread_name_infix}")
         self.blocked = False
+        self.ready = False
         self.consumer_tag = ""
 
     def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
@@ -512,10 +515,12 @@ class Async(Base[AsyncioConnection]):
                 callback=self.exchange_declareok_callback,
             )
         else:
+            self.ready = True
             self.exchange_ready()
 
     def exchange_declareok_callback(self, method: pika.frame.Method[pika.spec.Exchange.DeclareOk]) -> None:
         """Perform user-specified actions, once the exchange is declared."""
+        self.ready = True
         self.exchange_ready()
 
     def exchange_ready(self) -> None:

@@ -183,6 +183,7 @@ def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
     client = Client(durable=False, url=RABBIT_URL, exchange="yapw_test", exchange_type=exchange_type)
     client.start()
 
+    assert client.ready is True
     assert client.channel.is_closed
     assert client.connection.is_closed
 

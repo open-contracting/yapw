@@ -8,6 +8,34 @@ Added
 ~~~~~
 
 -  :class:`yapw.clients.Async` accepts a ``custom_ioloop`` argument, to pass to ``pika.adapters.asyncio_connection.AsyncioConnection``.
+-  :class:`yapw.clients.Async` sets a ``ready`` attribute to ``True`` before calling :meth:`~yapw.clients.Async.exchange_ready`. Usage:
+
+   .. code-block:: python
+
+      import functools
+
+      from yapw import methods
+      from yapw.clients import Async
+
+
+      class Extension:
+          def __init__(self):
+              self.client = Async()
+
+          def open(self):
+              self.client.start()
+
+          def write(self, message):
+              cb = functools.partial(self.when_ready, self.client.publish, {"message": message}, "my_routing_key")
+              methods.add_callback_threadsafe(self.client.connection, cb)
+
+          def when_ready(self, callback, *args):
+              if self.client.ready:
+                  callback(*args)
+              else:
+                  self.client.connection.ioloop.call_soon(self.when_ready, callback, *args)
+
+   In this example, the ``Extension`` class implements an imaginary framework's extension API: ``open()`` and ``write()``. It's possible that ``open()`` is called (which begins a series of callbacks to declare an exchange), and then ``write()`` is called before the exchange is declared. So, the ``when_ready`` method checks whether the exchange is declared using the client's ``ready`` attribute; if not, it reschedules the callback at the next iteration of the event loop.
 
 0.1.4 (2024-01-24)
 ------------------
