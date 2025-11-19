@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.2.0 (2025-11-19)
+------------------
+
+Changed
+~~~~~~~
+
+-  :class:`yapw.clients.Async` no longer raises ``NotImplementedError`` if the ``exchange_ready`` method isn't overridden.
+
 0.1.5 (2025-11-19)
 ------------------
 

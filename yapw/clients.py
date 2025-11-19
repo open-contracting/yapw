@@ -328,7 +328,7 @@ class Async(Base[AsyncioConnection]):
 
     Once the IO loop starts, the client creates a channel, sets the prefetch count, and declares the
     exchange. Once the exchange is declared, the :meth:`~yapw.clients.Async.exchange_declareok_callback` calls
-    :meth:`~yapw.clients.Async.exchange_ready`. You must define this method in a subclass, to do any work you need.
+    :meth:`~yapw.clients.Async.exchange_ready`. You can define this method in a subclass, to do any work you need.
 
     If the connection becomes `blocked <https://www.rabbitmq.com/connection-blocked.html>`__ or unblocked, the
     client's ``blocked`` attribute is set to ``True`` or ``False``, respectively. Your code can use this attribute to,
@@ -525,7 +525,6 @@ class Async(Base[AsyncioConnection]):
 
     def exchange_ready(self) -> None:
         """Override this method in subclasses, which is called once the exchange is declared."""
-        raise NotImplementedError  # causes StreamLostError if unimplemented
 
 
 class AsyncConsumer(Async):
