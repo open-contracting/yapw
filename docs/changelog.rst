@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.2.1 (2025-11-20)
+------------------
+
+Added
+~~~~~
+
+-  :class:`yapw.clients.Async` accepts a ``manage_ioloop`` argument, to control whether the client manages the event loop (run, stop, signal handlers).
+
 0.2.0 (2025-11-19)
 ------------------
 

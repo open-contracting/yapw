@@ -345,12 +345,25 @@ class Async(Base[AsyncioConnection]):
     # RabbitMQ takes about 10 seconds to restart.
     RECONNECT_DELAY = 15
 
-    def __init__(self, custom_ioloop: asyncio.AbstractEventLoop | None = None, **kwargs: Any):
-        """Initialize the client's state."""
+    def __init__(
+        self,
+        *,
+        custom_ioloop: asyncio.AbstractEventLoop | None = None,
+        manage_ioloop: bool = True,
+        **kwargs: Any,
+    ):
+        """
+        Initialize the client's state.
+
+        :param custom_ioloop: an event loop to use instead of ``asyncio.get_event_loop()``
+        :param manage_ioloop: whether the client manages the event loop (run, stop, signal handlers)
+        """
         super().__init__(**kwargs)
 
-        #: The custom event loop.
+        #: The event loop to pass to pika's initializer.
         self.custom_ioloop = custom_ioloop
+        #: Whether the client manages the event loop.
+        self.manage_ioloop = manage_ioloop
 
         #: The thread pool executor.
         self.executor = ThreadPoolExecutor(thread_name_prefix=f"yapw-{self.thread_name_infix}")
@@ -369,8 +382,9 @@ class Async(Base[AsyncioConnection]):
     def start(self) -> None:
         """:meth:`Connect<yapw.clients.Async.connect>` to RabbitMQ, add signal handlers, and start the IO loop."""
         self.connect()
-        self.add_signal_handlers(self._on_signal_callback)
-        self.connection.ioloop.run_forever()
+        if self.manage_ioloop:
+            self.add_signal_handlers(self._on_signal_callback)
+            self.connection.ioloop.run_forever()
 
     def connect(self) -> None:
         """Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange."""
@@ -405,7 +419,8 @@ class Async(Base[AsyncioConnection]):
     def reconnect(self) -> None:
         """Reconnect to RabbitMQ, unless a signal was received while the timer was running. If so, stop the IO loop."""
         if self.stopping:
-            self.connection.ioloop.stop()
+            if self.manage_ioloop:
+                self.connection.ioloop.stop()
         else:
             self.connect()
 
@@ -423,8 +438,9 @@ class Async(Base[AsyncioConnection]):
     def connection_open_error_callback(self, connection: pika.connection.Connection, error: Exception | str) -> None:
         """Retry, once the connection couldn't be established."""
         if isinstance(error, ConnectionOpenAborted | ProbableAccessDeniedError | ProbableAuthenticationError):
-            logger.error("Stopping: %r", error)
-            self.connection.ioloop.stop()
+            if self.manage_ioloop:
+                logger.error("Stopping: %r", error)
+                self.connection.ioloop.stop()
         else:
             logger.error("Connection failed, retrying in %ds: %r", self.RECONNECT_DELAY, error)
             self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
@@ -433,8 +449,9 @@ class Async(Base[AsyncioConnection]):
     def connection_close_callback(self, connection: pika.connection.Connection, reason: Exception) -> None:
         """Reconnect, if the connection was closed unexpectedly. Otherwise, stop the IO loop."""
         if self.stopping:
-            # A message has been logged, prior to calling interrupt().
-            self.connection.ioloop.stop()
+            if self.manage_ioloop:
+                # A message has been logged, prior to calling interrupt().
+                self.connection.ioloop.stop()
         else:
             # ConnectionClosedByBroker "CONNECTION_FORCED - broker forced connection closure with reason 'shutdown'"
             logger.warning("Connection closed, reconnecting in %ds: %r", self.RECONNECT_DELAY, reason)
@@ -468,7 +485,8 @@ class Async(Base[AsyncioConnection]):
         elif not self.connection.is_closed and not self.connection.is_closing:
             # The channel is already closed. Free any resources, without waiting for threads.
             self.executor.shutdown(wait=False, cancel_futures=True)
-            self.connection.close()
+            if self.manage_ioloop:
+                self.connection.close()
 
     def connection_open_callback(self, connection: pika.connection.Connection) -> None:
         """Open a channel, once the connection is open."""
@@ -503,7 +521,8 @@ class Async(Base[AsyncioConnection]):
         if not self.connection.is_closed and not self.connection.is_closing:
             # The channel is already closed. Free any resources, without waiting for threads.
             self.executor.shutdown(wait=False, cancel_futures=True)
-            self.connection.close()
+            if self.manage_ioloop:
+                self.connection.close()
 
     def channel_qosok_callback(self, method: pika.frame.Method[pika.spec.Basic.QosOk]) -> None:
         """Declare the exchange, once the prefetch count is set, if not using the default exchange."""
