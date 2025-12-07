@@ -15,7 +15,7 @@ project = "Yet Another Pika Wrapper"
 copyright = "2021, Open Contracting Partnership"
 author = "Open Contracting Partnership"
 
-version = "0.2.1"
+version = "0.2.2"
 release = version
 
 # -- General configuration ---------------------------------------------------

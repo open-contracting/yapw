@@ -485,8 +485,7 @@ class Async(Base[AsyncioConnection]):
         elif not self.connection.is_closed and not self.connection.is_closing:
             # The channel is already closed. Free any resources, without waiting for threads.
             self.executor.shutdown(wait=False, cancel_futures=True)
-            if self.manage_ioloop:
-                self.connection.close()
+            self.connection.close()
 
     def connection_open_callback(self, connection: pika.connection.Connection) -> None:
         """Open a channel, once the connection is open."""
@@ -521,8 +520,7 @@ class Async(Base[AsyncioConnection]):
         if not self.connection.is_closed and not self.connection.is_closing:
             # The channel is already closed. Free any resources, without waiting for threads.
             self.executor.shutdown(wait=False, cancel_futures=True)
-            if self.manage_ioloop:
-                self.connection.close()
+            self.connection.close()
 
     def channel_qosok_callback(self, method: pika.frame.Method[pika.spec.Basic.QosOk]) -> None:
         """Declare the exchange, once the prefetch count is set, if not using the default exchange."""

@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.2.2 (2025-12-07)
+------------------
+
+Fixed
+~~~~~
+
+-  :class:`yapw.clients.Async` closes the RabbitMQ connection regardless of the ``manage_ioloop`` argument.
+
 0.2.1 (2025-11-20)
 ------------------
 
