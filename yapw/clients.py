@@ -86,7 +86,7 @@ class Base(Generic[T]):
         blocked_connection_timeout: float = 1800,
         durable: bool = True,
         exchange: str = "",
-        exchange_type: ExchangeType = ExchangeType.direct,
+        exchange_type: ExchangeType = ExchangeType.direct,  # type: ignore[assignment] # https://github.com/baodrate/types-pika/issues/17
         prefetch_count: int = 1,
         decode: Decode = default_decode,
         encode: Encode = default_encode,
