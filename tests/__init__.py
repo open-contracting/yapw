@@ -33,7 +33,8 @@ def timed(interval):
 
 
 def blocking(**kwargs):
-    return Blocking(durable=False, url=RABBIT_URL, exchange="yapw_test", **kwargs)
+    # durable=True: RabbitMQ rejects non-durable, non-exclusive queues (transient_nonexcl_queues).
+    return Blocking(durable=True, url=RABBIT_URL, exchange="yapw_test", **kwargs)
 
 
 def encode(message):

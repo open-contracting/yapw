@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 def async_consumer(**kwargs):
-    return AsyncConsumer(durable=False, url=RABBIT_URL, exchange="yapw_test", **kwargs)
+    # durable=True: RabbitMQ rejects non-durable, non-exclusive queues (transient_nonexcl_queues).
+    return AsyncConsumer(durable=True, url=RABBIT_URL, exchange="yapw_test", **kwargs)
 
 
 @patch("yapw.clients.AsyncioConnection")

@@ -180,7 +180,8 @@ def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
         def exchange_ready(self):
             logger.info("stop")
 
-    client = Client(durable=False, url=RABBIT_URL, exchange="yapw_test", exchange_type=exchange_type)
+    # durable=True for consistency with other yapw_test exchange declarations in the test suite.
+    client = Client(durable=True, url=RABBIT_URL, exchange="yapw_test", exchange_type=exchange_type)
     client.start()
 
     assert client.ready is True
