@@ -170,8 +170,9 @@ def test_exchangeok_default(short_timer, caplog):
     assert client.channel.is_closed
     assert client.connection.is_closed
 
-    assert len(caplog.records) == 3
+    assert len(caplog.records) == 4
     assert [(r.levelname, r.message) for r in caplog.records] == [
+        ("DEBUG", "Using selector: EpollSelector"),
         ("INFO", "stop"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
         ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
@@ -194,8 +195,9 @@ def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
     assert client.channel.is_closed
     assert client.connection.is_closed
 
-    assert len(caplog.records) == 3
+    assert len(caplog.records) == 4
     assert [(r.levelname, r.message) for r in caplog.records] == [
+        ("DEBUG", "Using selector: EpollSelector"),
         ("INFO", "stop"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
         ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
