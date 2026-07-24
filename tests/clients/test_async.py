@@ -46,8 +46,10 @@ def test_init_kwargs(connection):
         ),
         (
             "amqp://127.0.0.1:1024",
-            r"AMQPConnectionError: \(AMQPConnectionWorkflowFailed: 1 exceptions in all; last exception - "
-            r"AMQPConnectorSocketConnectError: ConnectionRefusedError\(",
+            (
+                r"AMQPConnectionError: \(AMQPConnectionWorkflowFailed: 1 exceptions in all; last exception - "
+                r"AMQPConnectorSocketConnectError: ConnectionRefusedError\("
+            ),
         ),
     ],
 )
@@ -91,9 +93,11 @@ def test_connection_open_error_bad_username_or_password(auth, short_reconnect_de
     assert [(r.levelname, r.message) for r in caplog.records] == [
         (
             "ERROR",
-            "Stopping: ProbableAuthenticationError: Client was disconnected at a connection stage indicating a "
-            "probable authentication error: (\"ConnectionClosedByBroker: (403) 'ACCESS_REFUSED - Login was refused "
-            "using authentication mechanism PLAIN. For details see the broker logfile.'\",)",
+            (
+                "Stopping: ProbableAuthenticationError: Client was disconnected at a connection stage indicating a "
+                "probable authentication error: (\"ConnectionClosedByBroker: (403) 'ACCESS_REFUSED - Login was "
+                "refused using authentication mechanism PLAIN. For details see the broker logfile.'\",)"
+            ),
         )
     ]
 
@@ -118,9 +122,11 @@ def test_connection_open_error_bad_virtual_host(short_reconnect_delay, caplog):
     assert [(r.levelname, r.message) for r in caplog.records] == [
         (
             "ERROR",
-            "Stopping: ProbableAccessDeniedError: Client was disconnected at a connection stage indicating a probable "
-            "denial of access to the specified virtual host: (\"ConnectionClosedByBroker: (530) 'NOT_ALLOWED - vhost "
-            "/invalid not found'\",)",
+            (
+                "Stopping: ProbableAccessDeniedError: Client was disconnected at a connection stage indicating "
+                'a probable denial of access to the specified virtual host: ("ConnectionClosedByBroker: (530)'
+                " 'NOT_ALLOWED - vhost /invalid not found'\",)"
+            ),
         )
     ]
 
