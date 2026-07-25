@@ -18,8 +18,7 @@ def test_shutdown(signum, signame, message, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = blocking()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signum))
-    consumer.consume(sleeper, "q")
+    consumer.consume(functools.partial(sleeper, signum), "q")
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed

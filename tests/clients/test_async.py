@@ -1,12 +1,14 @@
 import logging
 import os
 import re
+import signal
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
 import pika
 import pytest
 
+from tests import kill
 from yapw.clients import Async
 
 logger = logging.getLogger(__name__)
@@ -157,13 +159,14 @@ def test_connection_close(short_reconnect_delay, caplog):
     ]
 
 
-def test_exchangeok_default(short_timer, caplog):
+def test_exchangeok_default(caplog):
     caplog.set_level(logging.INFO, logger="asyncio")
     caplog.set_level(logging.DEBUG)
 
     class Client(Async):
         def exchange_ready(self):
             logger.info("stop")
+            kill(signal.SIGINT)
 
     client = Client(durable=False, url=RABBIT_URL)
     client.start()
@@ -180,13 +183,14 @@ def test_exchangeok_default(short_timer, caplog):
 
 
 @pytest.mark.parametrize("exchange_type", [pika.exchange_type.ExchangeType.direct, "direct"])
-def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
+def test_exchangeok_kwargs(exchange_type, caplog):
     caplog.set_level(logging.INFO, logger="asyncio")
     caplog.set_level(logging.DEBUG)
 
     class Client(Async):
         def exchange_ready(self):
             logger.info("stop")
+            kill(signal.SIGINT)
 
     # durable=True for consistency with other yapw_test exchange declarations in the test suite.
     client = Client(durable=True, url=RABBIT_URL, exchange="yapw_test", exchange_type=exchange_type)

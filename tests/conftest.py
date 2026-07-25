@@ -1,20 +1,26 @@
+import signal
+
 import pytest
 
 from tests import blocking, timed
 from yapw.clients import Async
 
 
-# Use this in tests that terminate naturally (e.g. due to an exception).
+@pytest.fixture(autouse=True)
+def _drain_signals():
+    """Discard any signal still pending at teardown, so it isn't delivered to the next test."""
+    yield
+    # SIG_IGN drops a pending signal.
+    for signalnum in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(signalnum, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+
+# Use this in tests that terminate naturally (e.g. due to an exception), as a safety net against a hang.
 @pytest.fixture
 def timer(request):
     with timed(30):
-        yield
-
-
-# Use this in tests that don't terminate naturally.
-@pytest.fixture
-def short_timer(request):
-    with timed(0.05):
         yield
 
 

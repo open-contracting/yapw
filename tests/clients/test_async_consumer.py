@@ -1,23 +1,22 @@
 import functools
 import logging
 import signal
-from threading import Timer
 from unittest.mock import patch
 
 import pytest
 
 from tests import (
-    DELAY,
     RABBIT_URL,
     ack_warner,
     blocking,
     decode,
     encode,
-    kill,
+    interrupt_after,
+    interrupt_on_consume,
+    kill_after,
     nack_warner,
     raiser,
     sleeper,
-    timed,
     writer,
 )
 from yapw.clients import AsyncConsumer
@@ -66,9 +65,7 @@ def test_init_kwargs(connection):
 def test_shutdown(signum, signame, message, caplog):
     caplog.set_level(logging.INFO)
 
-    Timer(DELAY, functools.partial(kill, signum)).start()
-
-    consumer = async_consumer(on_message_callback=sleeper, queue="q")
+    consumer = async_consumer(on_message_callback=functools.partial(sleeper, signum), queue="q")
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -83,8 +80,10 @@ def test_shutdown(signum, signame, message, caplog):
     ]
 
 
-def test_decode_valid(short_message, short_timer, caplog):
-    consumer = async_consumer(on_message_callback=ack_warner, queue="q", decode=functools.partial(decode, 0))
+def test_decode_valid(short_message, caplog):
+    consumer = async_consumer(
+        on_message_callback=ack_warner, queue="q", decode=functools.partial(decode, 0), decorator=interrupt_after()
+    )
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -149,10 +148,10 @@ def test_halt(message, timer, caplog):
     ]
 
 
-def test_discard(message, short_timer, caplog):
+def test_discard(message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = async_consumer(on_message_callback=raiser, queue="q", decorator=discard)
+    consumer = async_consumer(on_message_callback=raiser, queue="q", decorator=kill_after(decorator=discard))
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -166,10 +165,10 @@ def test_discard(message, short_timer, caplog):
     ]
 
 
-def test_requeue(message, short_timer, caplog):
+def test_requeue(message, caplog):
     caplog.set_level(logging.INFO)
 
-    consumer = async_consumer(on_message_callback=raiser, queue="q", decorator=requeue)
+    consumer = async_consumer(on_message_callback=raiser, queue="q", decorator=kill_after(count=2, decorator=requeue))
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -184,11 +183,11 @@ def test_requeue(message, short_timer, caplog):
     ]
 
 
-def test_publish(message, short_timer, caplog):
+def test_publish(message, caplog):
     caplog.set_level(logging.INFO, logger="asyncio")
     caplog.set_level(logging.DEBUG)
 
-    consumer = async_consumer(on_message_callback=writer, queue="q", exchange_type="direct")
+    consumer = async_consumer(on_message_callback=writer, queue="q", exchange_type="direct", decorator=kill_after())
     consumer.start()
 
     assert consumer.channel.is_closed
@@ -209,16 +208,14 @@ def test_publish(message, short_timer, caplog):
 
 
 def test_consume_declares_queue(caplog):
-    with timed(DELAY):
-        declarer = async_consumer(on_message_callback=raiser, queue="q")
-        declarer.start()
+    declarer = interrupt_on_consume(async_consumer(on_message_callback=raiser, queue="q"))
+    declarer.start()
 
     publisher = blocking()
     publisher.publish({"message": "value"}, "q")
 
-    with timed(DELAY):
-        consumer = async_consumer(on_message_callback=nack_warner, queue="q")
-        consumer.start()
+    consumer = async_consumer(on_message_callback=nack_warner, queue="q", decorator=interrupt_after(count=2))
+    consumer.start()
 
     publisher.channel.queue_purge("yapw_test_q")
     publisher.close()
@@ -238,17 +235,17 @@ def test_consume_declares_queue(caplog):
 
 
 def test_consume_declares_queue_routing_keys(caplog):
-    with timed(DELAY):
-        declarer = async_consumer(on_message_callback=raiser, queue="q", routing_keys=["r", "k"])
-        declarer.start()
+    declarer = interrupt_on_consume(async_consumer(on_message_callback=raiser, queue="q", routing_keys=["r", "k"]))
+    declarer.start()
 
     publisher = blocking()
     publisher.publish({"message": "r"}, "r")
     publisher.publish({"message": "k"}, "k")
 
-    with timed(DELAY):
-        consumer = async_consumer(on_message_callback=ack_warner, queue="q", routing_keys=["r", "k"])
-        consumer.start()
+    consumer = async_consumer(
+        on_message_callback=ack_warner, queue="q", routing_keys=["r", "k"], decorator=interrupt_after(count=2)
+    )
+    consumer.start()
 
     publisher.channel.queue_purge("yapw_test_q")
     publisher.close()
