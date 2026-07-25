@@ -489,6 +489,10 @@ class Async(Base[AsyncioConnection]):
             self.executor.shutdown(wait=False, cancel_futures=True)
             self.connection.close()
 
+    def _is_shutting_down(self) -> bool:
+        """Return whether shutdown has started."""
+        return self.stopping or self.channel.is_closing or self.channel.is_closed
+
     def connection_open_callback(self, connection: pika.connection.Connection) -> None:
         """Open a channel, once the connection is open."""
         connection.channel(on_open_callback=self.channel_open_callback)
@@ -526,6 +530,8 @@ class Async(Base[AsyncioConnection]):
 
     def channel_qosok_callback(self, method: pika.frame.Method[pika.spec.Basic.QosOk]) -> None:
         """Declare the exchange, once the prefetch count is set, if not using the default exchange."""
+        if self._is_shutting_down():
+            return
         if self.exchange:
             self.channel.exchange_declare(
                 exchange=self.exchange,
@@ -539,6 +545,8 @@ class Async(Base[AsyncioConnection]):
 
     def exchange_declareok_callback(self, method: pika.frame.Method[pika.spec.Exchange.DeclareOk]) -> None:
         """Perform user-specified actions, once the exchange is declared."""
+        if self._is_shutting_down():
+            return
         self.ready = True
         self.exchange_ready()
 
@@ -610,12 +618,16 @@ class AsyncConsumer(Async):
 
     def queue_declareok_callback(self, method: pika.frame.Method[pika.spec.Queue.DeclareOk], queue_name: str) -> None:
         """Bind the queue to the first routing key, once the queue is declared."""
+        if self._is_shutting_down():
+            return
         self._bind_queue(queue_name, 0)
 
     def queue_bindok_callback(
         self, method: pika.frame.Method[pika.spec.Queue.BindOk], queue_name: str, index: int
     ) -> None:
         """Bind the queue to the remaining routing keys, or start consuming if all routing keys bound."""
+        if self._is_shutting_down():
+            return
         if index < len(self.routing_keys):
             self._bind_queue(queue_name, index)
         else:

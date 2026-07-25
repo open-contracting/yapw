@@ -1,6 +1,20 @@
 Changelog
 =========
 
+0.2.3 (2026-07-24)
+------------------
+
+Changed
+~~~~~~~
+
+-  :class:`yapw.clients.Async` ignores duplicate ``SIGINT`` and ``SIGTERM`` signals while shutting down. Previously, a duplicate signal could raise ``KeyboardInterrupt``. To force termination, send ``SIGKILL``.
+
+Fixed
+~~~~~
+
+-  :class:`yapw.clients.Async` removes its signal handlers from the main thread when the IO loop stops, to avoid a "signal only works in main thread of the main interpreter" error if the event loop is garbage collected on another thread.
+-  :class:`yapw.clients.Async` and :class:`yapw.clients.AsyncConsumer` don't raise ``ChannelWrongStateError`` if a signal is received while setting up the channel (declaring the exchange or queue, binding the queue, or starting to consume).
+
 0.2.2 (2025-12-07)
 ------------------
 
