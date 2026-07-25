@@ -384,7 +384,11 @@ class Async(Base[AsyncioConnection]):
         self.connect()
         if self.manage_ioloop:
             self.add_signal_handlers(self._on_signal_callback)
-            self.connection.ioloop.run_forever()
+            try:
+                self.connection.ioloop.run_forever()
+            finally:
+                self.connection.ioloop.remove_signal_handler(signal.SIGTERM)
+                self.connection.ioloop.remove_signal_handler(signal.SIGINT)
 
     def connect(self) -> None:
         """Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange."""
@@ -463,9 +467,7 @@ class Async(Base[AsyncioConnection]):
         self.connection.ioloop.add_signal_handler(signalnum, partial(handler, signalnum=signalnum))
 
     def _on_signal_callback(self, signalnum: int) -> None:
-        if not self.stopping:  # remove_signal_handler() is too slow
-            self.connection.ioloop.remove_signal_handler(signal.SIGTERM)
-            self.connection.ioloop.remove_signal_handler(signal.SIGINT)
+        if not self.stopping:
             logger.info("Received %s, shutting down gracefully", signal_names[signalnum])
             self.interrupt()
 
