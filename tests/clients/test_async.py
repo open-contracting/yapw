@@ -158,6 +158,7 @@ def test_connection_close(short_reconnect_delay, caplog):
 
 
 def test_exchangeok_default(short_timer, caplog):
+    caplog.set_level(logging.INFO, logger="asyncio")
     caplog.set_level(logging.DEBUG)
 
     class Client(Async):
@@ -170,9 +171,8 @@ def test_exchangeok_default(short_timer, caplog):
     assert client.channel.is_closed
     assert client.connection.is_closed
 
-    assert len(caplog.records) == 4
+    assert len(caplog.records) == 3
     assert [(r.levelname, r.message) for r in caplog.records] == [
-        ("DEBUG", "Using selector: EpollSelector"),
         ("INFO", "stop"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
         ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
@@ -181,6 +181,7 @@ def test_exchangeok_default(short_timer, caplog):
 
 @pytest.mark.parametrize("exchange_type", [pika.exchange_type.ExchangeType.direct, "direct"])
 def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
+    caplog.set_level(logging.INFO, logger="asyncio")
     caplog.set_level(logging.DEBUG)
 
     class Client(Async):
@@ -195,9 +196,8 @@ def test_exchangeok_kwargs(exchange_type, short_timer, caplog):
     assert client.channel.is_closed
     assert client.connection.is_closed
 
-    assert len(caplog.records) == 4
+    assert len(caplog.records) == 3
     assert [(r.levelname, r.message) for r in caplog.records] == [
-        ("DEBUG", "Using selector: EpollSelector"),
         ("INFO", "stop"),
         ("INFO", "Received SIGINT, shutting down gracefully"),
         ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
