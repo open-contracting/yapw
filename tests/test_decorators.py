@@ -116,7 +116,7 @@ def test_discard(nack, caplog):
     assert caplog.records[0].message == "Received message b'\"body\"' with routing key key and delivery tag 1"
     assert caplog.records[-1].levelname == "ERROR"
     assert caplog.records[-1].message == "Unhandled exception when consuming b'\"body\"', discarding message"
-    assert caplog.records[-1].exc_info
+    assert caplog.records[-1].exc_info[0] is RuntimeError
 
 
 @pytest.mark.parametrize(("redelivered", "requeue_kwarg"), [(False, True), (True, False)])
@@ -136,7 +136,7 @@ def test_requeue(nack, redelivered, requeue_kwarg, caplog):
     assert caplog.records[0].message == "Received message b'\"body\"' with routing key key and delivery tag 1"
     assert caplog.records[-1].levelname == "ERROR"
     assert caplog.records[-1].message == f"Unhandled exception when consuming b'\"body\"' (requeue={requeue_kwarg})"
-    assert caplog.records[-1].exc_info
+    assert caplog.records[-1].exc_info[0] is RuntimeError
 
 
 @patch("yapw.decorators.nack")

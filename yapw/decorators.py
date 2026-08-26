@@ -99,8 +99,8 @@ def halt(
     If the ``callback`` function raises an exception, shut down the client in the main thread, without acknowledgment.
     """
 
-    def errback(_exception: Exception) -> None:
-        logger.exception("Unhandled exception when consuming %r, shutting down gracefully", body)  # noqa: LOG004
+    def errback(exception: Exception) -> None:
+        logger.error("Unhandled exception when consuming %r, shutting down gracefully", body, exc_info=exception)
         add_callback_threadsafe(state.connection, state.interrupt)
 
     decorate(decode, callback, state, channel, method, properties, body, errback)
@@ -117,8 +117,8 @@ def discard(
 ) -> None:
     """If the ``callback`` function raises an exception, nack the message, without requeueing."""
 
-    def errback(_exception: Exception) -> None:
-        logger.exception("Unhandled exception when consuming %r, discarding message", body)  # noqa: LOG004
+    def errback(exception: Exception) -> None:
+        logger.error("Unhandled exception when consuming %r, discarding message", body, exc_info=exception)
         nack(state, channel, method.delivery_tag, requeue=False)
 
     decorate(decode, callback, state, channel, method, properties, body, errback)
@@ -135,9 +135,9 @@ def requeue(
 ) -> None:
     """If the ``callback`` function raises an exception, nack the message, requeueing it unless it was redelivered."""
 
-    def errback(_exception: Exception) -> None:
+    def errback(exception: Exception) -> None:
         requeue = not method.redelivered
-        logger.exception("Unhandled exception when consuming %r (requeue=%r)", body, requeue)  # noqa: LOG004
+        logger.error("Unhandled exception when consuming %r (requeue=%r)", body, requeue, exc_info=exception)
         nack(state, channel, method.delivery_tag, requeue=requeue)
 
     decorate(decode, callback, state, channel, method, properties, body, errback)
