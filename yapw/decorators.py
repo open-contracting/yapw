@@ -12,6 +12,17 @@ The other decorators require more care. For example, if a callback inserts messa
 is down, but this exception isn't handled by the callback, then the :func:`~yapw.decorators.discard` or
 :func:`~yapw.decorators.requeue` decorators would end up nack'ing all messages in the queue.
 
+To call a function after each message (for example, to close database connections), pass a ``finalback``:
+
+.. code-block:: python
+
+   from functools import partial
+
+   from yapw.clients import AsyncConsumer
+   from yapw.decorators import discard
+
+   client = AsyncConsumer(decorator=partial(discard, finalback=close_connections), ...)
+
 Decorators look like this (see the :func:`~yapw.decorators.decorate` function for context):
 
 .. code-block:: python
@@ -94,6 +105,8 @@ def halt(
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
+    *,
+    finalback: Callable[[], None] | None = None,
 ) -> None:
     """
     If the ``callback`` function raises an exception, shut down the client in the main thread, without acknowledgment.
@@ -103,7 +116,7 @@ def halt(
         logger.error("Unhandled exception when consuming %r, shutting down gracefully", body, exc_info=exception)
         add_callback_threadsafe(state.connection, state.interrupt)
 
-    decorate(decode, callback, state, channel, method, properties, body, errback)
+    decorate(decode, callback, state, channel, method, properties, body, errback, finalback)
 
 
 def discard(
@@ -114,6 +127,8 @@ def discard(
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
+    *,
+    finalback: Callable[[], None] | None = None,
 ) -> None:
     """If the ``callback`` function raises an exception, nack the message, without requeueing."""
 
@@ -121,7 +136,7 @@ def discard(
         logger.error("Unhandled exception when consuming %r, discarding message", body, exc_info=exception)
         nack(state, channel, method.delivery_tag, requeue=False)
 
-    decorate(decode, callback, state, channel, method, properties, body, errback)
+    decorate(decode, callback, state, channel, method, properties, body, errback, finalback)
 
 
 def requeue(
@@ -132,6 +147,8 @@ def requeue(
     method: pika.spec.Basic.Deliver,
     properties: pika.BasicProperties,
     body: bytes,
+    *,
+    finalback: Callable[[], None] | None = None,
 ) -> None:
     """If the ``callback`` function raises an exception, nack the message, requeueing it unless it was redelivered."""
 
@@ -140,4 +157,4 @@ def requeue(
         logger.error("Unhandled exception when consuming %r (requeue=%r)", body, requeue, exc_info=exception)
         nack(state, channel, method.delivery_tag, requeue=requeue)
 
-    decorate(decode, callback, state, channel, method, properties, body, errback)
+    decorate(decode, callback, state, channel, method, properties, body, errback, finalback)

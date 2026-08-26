@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from yapw.decorators import decorate, discard, requeue
+from yapw.decorators import decorate, discard, halt, requeue
 from yapw.util import default_decode
 
 # https://pika.readthedocs.io/en/stable/modules/spec.html#pika.spec.Basic.Deliver
@@ -173,3 +173,16 @@ def test_finalback_passes(nack, caplog):
     assert len(caplog.records) == 1
     assert caplog.records[-1].levelname == "WARNING"
     assert caplog.records[-1].message == "finalback"
+
+
+@pytest.mark.parametrize("callback", [passes, raises])
+@pytest.mark.parametrize("decorator", [halt, discard, requeue])
+@patch("yapw.decorators.nack")
+def test_finalback_argument(nack, decorator, callback):
+    method = Deliver(1, False, "key")
+    properties = BasicProperties("application/json")
+    finalback = Mock()
+
+    decorator(default_decode, callback, Mock(), "channel", method, properties, b'"body"', finalback=finalback)
+
+    finalback.assert_called_once_with()

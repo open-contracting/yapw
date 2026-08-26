@@ -1,8 +1,13 @@
 Changelog
 =========
 
-0.2.3 (2026-07-24)
+0.2.3 (2026-08-26)
 ------------------
+
+Added
+~~~~~
+
+-  :func:`yapw.decorators.halt`, :func:`~yapw.decorators.discard` and :func:`~yapw.decorators.requeue` accept a ``finalback`` keyword argument, to run a function after every message, like closing database connections, without writing a decorator.
 
 Changed
 ~~~~~~~
