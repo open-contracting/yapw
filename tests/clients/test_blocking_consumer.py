@@ -4,7 +4,19 @@ import signal
 
 import pytest
 
-from tests import DELAY, ack_warner, blocking, decode, encode, kill, nack_warner, raiser, sleeper, writer
+from tests import (
+    ack_warner,
+    blocking,
+    decode,
+    encode,
+    interrupt_after,
+    interrupt_on_consume,
+    kill_after,
+    nack_warner,
+    raiser,
+    sleeper,
+    writer,
+)
 from yapw.decorators import discard, requeue
 
 logger = logging.getLogger(__name__)
@@ -33,8 +45,7 @@ def test_shutdown(signum, signame, message, caplog):
 
 def test_decode_valid(short_message, caplog):
     consumer = blocking(decode=functools.partial(decode, 0))
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(ack_warner, "q")
+    consumer.consume(ack_warner, "q", decorator=interrupt_after())
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
@@ -43,11 +54,10 @@ def test_decode_valid(short_message, caplog):
     assert [(r.levelname, r.message) for r in caplog.records] == [("WARNING", "1")]
 
 
-def test_decode_invalid(short_message, caplog):
+def test_decode_invalid(short_message, timer, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = blocking(decode=functools.partial(decode, 10))  # IndexError
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(ack_warner, "q")
 
     assert consumer.channel.is_closed
@@ -59,11 +69,10 @@ def test_decode_invalid(short_message, caplog):
     ]
 
 
-def test_decode_raiser(message, caplog):
+def test_decode_raiser(message, timer, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = blocking(decode=raiser)
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
     consumer.consume(ack_warner, "q")
 
     assert consumer.channel.is_closed
@@ -75,11 +84,10 @@ def test_decode_raiser(message, caplog):
     ]
 
 
-def test_halt(message, caplog):
+def test_halt(message, timer, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = blocking()
-    consumer.connection.call_later(30, functools.partial(kill, signal.SIGINT))  # in case not halted
     consumer.consume(raiser, "q")
 
     assert consumer.channel.is_closed
@@ -95,8 +103,7 @@ def test_discard(message, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = blocking()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(raiser, "q", decorator=discard)
+    consumer.consume(raiser, "q", decorator=kill_after(decorator=discard))
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
@@ -112,8 +119,7 @@ def test_requeue(message, caplog):
     caplog.set_level(logging.INFO)
 
     consumer = blocking()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(raiser, "q", decorator=requeue)
+    consumer.consume(raiser, "q", decorator=kill_after(count=2, decorator=requeue))
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
@@ -130,8 +136,7 @@ def test_publish(message, caplog):
     caplog.set_level(logging.DEBUG)
 
     consumer = blocking()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(writer, "q")
+    consumer.consume(writer, "q", decorator=kill_after())
 
     assert consumer.channel.is_closed
     assert consumer.connection.is_closed
@@ -150,16 +155,14 @@ def test_publish(message, caplog):
 
 
 def test_consume_declares_queue(caplog):
-    declarer = blocking()
-    declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    declarer = interrupt_on_consume(blocking())
     declarer.consume(raiser, "q")
 
     publisher = blocking()
     publisher.publish({"message": "value"}, "q")
 
     consumer = blocking()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(nack_warner, "q")
+    consumer.consume(nack_warner, "q", decorator=interrupt_after(count=2))
 
     publisher.channel.queue_purge("yapw_test_q")
     publisher.close()
@@ -172,8 +175,7 @@ def test_consume_declares_queue(caplog):
 
 
 def test_consume_declares_queue_routing_keys(caplog):
-    declarer = blocking()
-    declarer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
+    declarer = interrupt_on_consume(blocking())
     declarer.consume(raiser, "q", ["r", "k"])
 
     publisher = blocking()
@@ -181,8 +183,7 @@ def test_consume_declares_queue_routing_keys(caplog):
     publisher.publish({"message": "k"}, "k")
 
     consumer = blocking()
-    consumer.connection.call_later(DELAY, functools.partial(kill, signal.SIGINT))
-    consumer.consume(ack_warner, "q", ["r", "k"])
+    consumer.consume(ack_warner, "q", ["r", "k"], decorator=interrupt_after(count=2))
 
     publisher.channel.queue_purge("yapw_test_q")
     publisher.close()

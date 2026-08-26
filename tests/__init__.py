@@ -33,11 +33,21 @@ def timed(interval):
 
 def interrupt_on_consume(consumer):
     """Interrupt the client ``DELAY`` seconds after it starts consuming. Use it for a consumer with no messages."""
+    if isinstance(consumer, Blocking):
+        add_signal_handlers = consumer.add_signal_handlers
 
-    def channel_consumeok_callback(method):
-        consumer.connection.ioloop.call_later(DELAY, consumer.interrupt)
+        # Schedule `interrupt` after `consume` calls `basic_consume`, which sets the tag by which `interrupt` cancels.
+        def wrapper(handler):
+            add_signal_handlers(handler)
+            consumer.connection.call_later(DELAY, consumer.interrupt)
 
-    consumer.channel_consumeok_callback = channel_consumeok_callback
+        consumer.add_signal_handlers = wrapper
+    else:
+
+        def channel_consumeok_callback(method):
+            consumer.connection.ioloop.call_later(DELAY, consumer.interrupt)
+
+        consumer.channel_consumeok_callback = channel_consumeok_callback
     return consumer
 
 
