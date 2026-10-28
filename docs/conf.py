@@ -53,5 +53,5 @@ autodoc_type_aliases = {
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "pika": ("https://pika.readthedocs.io/en/stable/", None),
+    "pika": ("https://pika.github.io/pika/latest/", None),
 }
