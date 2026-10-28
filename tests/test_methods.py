@@ -1,5 +1,5 @@
 import functools
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest.mock import create_autospec
 
 import pika
@@ -8,9 +8,28 @@ import pytest
 from yapw.methods import ack, nack, publish
 from yapw.util import default_encode
 
-Connection = namedtuple("Connection", "is_open add_callback_threadsafe")
-Channel = namedtuple("Channel", "channel_number is_open basic_ack basic_nack basic_publish")
-State = namedtuple("State", "format_routing_key connection exchange encode content_type delivery_mode")
+
+class Connection(NamedTuple):
+    is_open: Any
+    add_callback_threadsafe: Any
+
+
+class Channel(NamedTuple):
+    channel_number: Any
+    is_open: Any
+    basic_ack: Any
+    basic_nack: Any
+    basic_publish: Any
+
+
+class State(NamedTuple):
+    format_routing_key: Any
+    connection: Any
+    exchange: Any
+    encode: Any
+    content_type: Any
+    delivery_mode: Any
+
 
 ack_nack_parameters = [(ack, "ack", [1]), (nack, "nack", [1])]
 parameters = [*ack_nack_parameters, (publish, "publish", [{"message": "value"}, "q"])]
