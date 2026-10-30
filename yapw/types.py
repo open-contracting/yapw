@@ -1,4 +1,3 @@
-import sys
 from collections.abc import Callable
 from typing import Any, Generic, NamedTuple, TypedDict, TypeVar
 
@@ -9,45 +8,23 @@ Encode = Callable[[Any, str], bytes]
 Decode = Callable[[bytes, str | None], Any]
 
 
-if sys.version_info >= (3, 11):
+class State(NamedTuple, Generic[T]):
+    """Attributes that can be used safely in consumer callbacks."""
 
-    class State(NamedTuple, Generic[T]):
-        """Attributes that can be used safely in consumer callbacks."""
-
-        #: A function to format the routing key.
-        format_routing_key: Callable[[str], str]
-        #: A function to shut down the client.
-        interrupt: Callable[[T], None]
-        #: The connection.
-        connection: T
-        #: The exchange name.
-        exchange: str
-        #: The message bodies' encoder.
-        encode: Encode
-        #: The messages' content type.
-        content_type: str
-        #: The messages' delivery mode.
-        delivery_mode: int
-
-else:
-
-    class State(NamedTuple):  # "TypeError: Multiple inheritance with NamedTuple is not supported"
-        """Attributes that can be used safely in consumer callbacks."""
-
-        #: A function to format the routing key.
-        format_routing_key: Callable[[str], str]
-        #: A function to shut down the client.
-        interrupt: Callable[[T], None]
-        #: The connection.
-        connection: T
-        #: The exchange name.
-        exchange: str
-        #: The message bodies' encoder.
-        encode: Encode
-        #: The messages' content type.
-        content_type: str
-        #: The messages' delivery mode.
-        delivery_mode: int
+    #: A function to format the routing key.
+    format_routing_key: Callable[[str], str]
+    #: A function to shut down the client.
+    interrupt: Callable[[T], None]
+    #: The connection.
+    connection: T
+    #: The exchange name.
+    exchange: str
+    #: The message bodies' encoder.
+    encode: Encode
+    #: The messages' content type.
+    content_type: str
+    #: The messages' delivery mode.
+    delivery_mode: int
 
 
 class PublishKeywords(TypedDict, total=False):
