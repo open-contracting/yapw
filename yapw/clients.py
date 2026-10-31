@@ -354,7 +354,7 @@ class Async(Base[AsyncioConnection]):
         """
         Initialize the client's state.
 
-        :param custom_ioloop: an event loop to use instead of ``asyncio.get_event_loop()``
+        :param custom_ioloop: an event loop to use instead of a new event loop, which the client closes
         :param manage_ioloop: whether the client manages the event loop (run, stop, signal handlers)
         """
         super().__init__(**kwargs)
@@ -388,6 +388,9 @@ class Async(Base[AsyncioConnection]):
             finally:
                 self.connection.ioloop.remove_signal_handler(signal.SIGTERM)
                 self.connection.ioloop.remove_signal_handler(signal.SIGINT)
+                # Pika creates a new event loop if none is provided.
+                if self.custom_ioloop is None:
+                    self.connection.ioloop.close()
 
     def connect(self) -> None:
         """Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange."""

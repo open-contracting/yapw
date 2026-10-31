@@ -10,6 +10,12 @@ Added
 -  Add support for Python 3.15.
 -  Type the keyword arguments of the clients' initializers and of :func:`yapw.methods.publish`, :func:`~yapw.methods.ack` and :func:`~yapw.methods.nack`, using :class:`typing.TypedDict` (`PEP 692 <https://peps.python.org/pep-0692/>`__).
 
+Changed
+~~~~~~~
+
+-  :meth:`yapw.clients.Async.start` closes the event loop when it stops the event loop, unless the ``custom_ioloop`` keyword argument is set.
+-  Require Pika 1.4.0 or later, which creates a new event loop if none is running, instead of calling ``asyncio.get_event_loop()``, which raises an error in Python 3.14.
+
 Removed
 ~~~~~~~
 
