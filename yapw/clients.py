@@ -14,7 +14,7 @@ import signal
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Unpack
 
 import pika
 from pika.adapters.asyncio_connection import AsyncioConnection
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from types import FrameType
 
-    from yapw.types import ConsumerCallback, Decode, Decorator, Encode, State
+    from yapw.types import AsyncKeywords, ClientKeywords, ConsumerCallback, Decode, Decorator, Encode, State
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -198,7 +198,7 @@ class Base(Generic[T]):
 class Blocking(Base[pika.BlockingConnection]):
     """Uses Pika's :class:`BlockingConnection adapter<pika.adapters.blocking_connection.BlockingConnection>`."""
 
-    def __init__(self, **kwargs: Any):
+    def __init__(self, **kwargs: Unpack[ClientKeywords]):
         """Connect to RabbitMQ, create a channel, set the prefetch count, and declare an exchange."""
         super().__init__(**kwargs)
 
@@ -349,7 +349,7 @@ class Async(Base[AsyncioConnection]):
         *,
         custom_ioloop: asyncio.AbstractEventLoop | None = None,
         manage_ioloop: bool = True,
-        **kwargs: Any,
+        **kwargs: Unpack[ClientKeywords],
     ):
         """
         Initialize the client's state.
@@ -575,7 +575,7 @@ class AsyncConsumer(Async):
         routing_keys: list[str] | None = None,
         decorator: Decorator = halt,
         arguments: dict[str, Any] | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[AsyncKeywords],
     ) -> None:
         """
         Initialize the client's state.

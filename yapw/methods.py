@@ -2,18 +2,23 @@
 
 import functools
 import logging
-from typing import Any
+from typing import Any, Unpack
 
 import pika
 
-from yapw.types import State
+from yapw.types import AckKeywords, NackKeywords, PublishKeywords, PublishOptions, State
 from yapw.util import basic_publish_debug_args, basic_publish_kwargs
 
 logger = logging.getLogger(__name__)
 
 
 def publish(
-    state: State[Any], channel: pika.channel.Channel, message: Any, routing_key: str, *args: Any, **kwargs: Any
+    state: State[Any],
+    channel: pika.channel.Channel,
+    message: Any,
+    routing_key: str,
+    *args: Any,
+    **kwargs: Unpack[PublishOptions],
 ) -> None:
     """
     Publish the ``message`` with the ``routing_key``, to the exchange set by the ``state``.
@@ -23,14 +28,15 @@ def publish(
     :param message: a decoded message
     :param routing_key: the routing key
     """
-    keywords = basic_publish_kwargs(state, message, routing_key)
-    keywords.update(kwargs)  # type: ignore[typeddict-item] # PEP 692 disallows updating TypedDict with Dict
+    keywords: PublishKeywords = {**basic_publish_kwargs(state, message, routing_key), **kwargs}
 
     _channel_method_from_thread(state.connection, channel, "publish", *args, **keywords)
     logger.debug(*basic_publish_debug_args(channel, message, keywords))
 
 
-def ack(state: State[Any], channel: pika.channel.Channel, delivery_tag: int | None = 0, **kwargs: bool) -> None:
+def ack(
+    state: State[Any], channel: pika.channel.Channel, delivery_tag: int | None = 0, **kwargs: Unpack[AckKeywords]
+) -> None:
     """
     Ack a message by its delivery tag.
 
@@ -42,7 +48,9 @@ def ack(state: State[Any], channel: pika.channel.Channel, delivery_tag: int | No
     logger.debug("Ack'd message on channel %s with delivery tag %s", channel.channel_number, delivery_tag)
 
 
-def nack(state: State[Any], channel: pika.channel.Channel, delivery_tag: int | None = 0, **kwargs: bool) -> None:
+def nack(
+    state: State[Any], channel: pika.channel.Channel, delivery_tag: int | None = 0, **kwargs: Unpack[NackKeywords]
+) -> None:
     """
     Nack a message by its delivery tag.
 

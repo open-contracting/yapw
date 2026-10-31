@@ -8,6 +8,7 @@ Added
 ~~~~~
 
 -  Add support for Python 3.15.
+-  Type the keyword arguments of the clients' initializers and of :func:`yapw.methods.publish`, :func:`~yapw.methods.ack` and :func:`~yapw.methods.nack`, using :class:`typing.TypedDict` (`PEP 692 <https://peps.python.org/pep-0692/>`__).
 
 Removed
 ~~~~~~~
