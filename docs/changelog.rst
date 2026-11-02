@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+Fixed
+~~~~~
+
+-  :class:`yapw.clients.Async` shuts down the thread pool executor if the connection is lost (e.g. missed heartbeats or a broker restart), before reconnecting. Previously, queued messages could be processed after being redelivered on the new connection, and the executor's threads remained until garbage collected.
+
 0.3.0 (2026-10-31)
 ------------------
 

@@ -159,6 +159,33 @@ def test_connection_close(short_reconnect_delay, caplog):
     ]
 
 
+def test_connection_lost(short_reconnect_delay, caplog):
+    class Client(Async):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.executors = []
+
+        def exchange_ready(self):
+            self.executors.append(self.executor)
+            # Lose the connection, like a missed heartbeat.
+            if len(self.executors) == 1:
+                self.connection._terminate_stream(pika.exceptions.StreamLostError("lost"))  # noqa: SLF001
+            else:
+                self.interrupt()
+
+    client = Client(durable=False, url=RABBIT_URL)
+    client.start()
+
+    with pytest.raises(RuntimeError, match="cannot schedule new futures after shutdown"):
+        client.executors[0].submit(print)
+
+    assert [(r.levelname, r.message) for r in caplog.records] == [
+        ("WARNING", "Channel 1 was closed: StreamLostError: ('lost',)"),
+        ("WARNING", "Connection closed, reconnecting in 1s: StreamLostError: ('lost',)"),
+        ("WARNING", "Channel 1 was closed: ChannelClosedByClient: (200) 'Normal shutdown'"),
+    ]
+
+
 def test_exchangeok_default(caplog):
     caplog.set_level(logging.INFO, logger="asyncio")
     caplog.set_level(logging.DEBUG)

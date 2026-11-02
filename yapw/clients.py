@@ -461,6 +461,8 @@ class Async(Base[AsyncioConnection]):
         else:
             # ConnectionClosedByBroker "CONNECTION_FORCED - broker forced connection closure with reason 'shutdown'"
             logger.warning("Connection closed, reconnecting in %ds: %r", self.RECONNECT_DELAY, reason)
+            # If the connection was lost, channel_close_callback() didn't shut down the executor.
+            self.executor.shutdown(wait=False, cancel_futures=True)
             self.connection.ioloop.call_later(self.RECONNECT_DELAY, self.reconnect)
             self.reset()
 
